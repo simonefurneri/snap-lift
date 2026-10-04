@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { PlanDayWithExercises } from '@/types/database.types';
 import {
   DndContext,
@@ -19,7 +19,15 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, GripHorizontal, Edit3, Trash2, MoreHorizontal, Settings2 } from 'lucide-react';
+import {
+  Plus,
+  GripHorizontal,
+  Edit3,
+  Trash2,
+  MoreHorizontal,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
@@ -66,6 +74,7 @@ function SortableDayTabItem({
     <div
       ref={setNodeRef}
       style={style}
+      data-day-id={day.id}
       className={cn(
         'group relative flex items-center rounded-2xl transition-all select-none shrink-0',
         isSelected
@@ -146,6 +155,72 @@ export function DayManager({
   const [dayToDelete, setDayToDelete] = useState<PlanDayWithExercises | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (el) {
+      const hasOverflow = el.scrollWidth > el.clientWidth;
+      setCanScrollLeft(hasOverflow && el.scrollLeft > 5);
+      setCanScrollRight(hasOverflow && el.scrollLeft + el.clientWidth < el.scrollWidth - 5);
+    }
+  }, []);
+
+  // Update scroll indicator on resize or days change
+  useEffect(() => {
+    checkScroll();
+    window.addEventListener('resize', checkScroll);
+    return () => window.removeEventListener('resize', checkScroll);
+  }, [days, checkScroll]);
+
+  // Mouse wheel horizontal scroll listener (converts vertical wheel into horizontal scroll on desktop)
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY !== 0 && el.scrollWidth > el.clientWidth) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+        checkScroll();
+      }
+    };
+
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [checkScroll]);
+
+  // Auto-scroll to selected day when selectedDayId changes
+  useEffect(() => {
+    if (selectedDayId && scrollContainerRef.current) {
+      const selectedEl = scrollContainerRef.current.querySelector(
+        `[data-day-id="${selectedDayId}"]`
+      );
+      if (selectedEl) {
+        selectedEl.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'center',
+        });
+      }
+    }
+    checkScroll();
+  }, [selectedDayId, days, checkScroll]);
+
+  const scroll = (direction: 'left' | 'right') => {
+    const el = scrollContainerRef.current;
+    if (el) {
+      const scrollAmount = 240;
+      el.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth',
+      });
+      setTimeout(checkScroll, 250);
+    }
+  };
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -220,28 +295,60 @@ export function DayManager({
         </button>
       </div>
 
-      {/* Horizontal Draggable Day Pills Container */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={days.map((d) => d.id)}
-            strategy={horizontalListSortingStrategy}
+      {/* Horizontal Draggable Day Pills Container with Desktop Scroll Arrows */}
+      <div className="relative group/carousel">
+        {/* Left Scroll Button (Desktop) */}
+        {canScrollLeft && (
+          <button
+            type="button"
+            onClick={() => scroll('left')}
+            className="hidden sm:flex absolute -left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-white/95 dark:bg-zinc-800/95 border border-slate-200 dark:border-zinc-700 shadow-md items-center justify-center text-zinc-600 dark:text-zinc-300 hover:text-emerald-500 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+            title="Scorri a sinistra"
+            aria-label="Scorri giorni a sinistra"
           >
-            {days.map((day) => (
-              <SortableDayTabItem
-                key={day.id}
-                day={day}
-                isSelected={day.id === selectedDayId}
-                onSelect={() => onSelectDay(day.id)}
-                onOpenOptions={() => setActiveManageDay(day)}
-              />
-            ))}
-          </SortableContext>
-        </DndContext>
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+        )}
+
+        {/* Right Scroll Button (Desktop) */}
+        {canScrollRight && (
+          <button
+            type="button"
+            onClick={() => scroll('right')}
+            className="hidden sm:flex absolute -right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-white/95 dark:bg-zinc-800/95 border border-slate-200 dark:border-zinc-700 shadow-md items-center justify-center text-zinc-600 dark:text-zinc-300 hover:text-emerald-500 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+            title="Scorri a destra"
+            aria-label="Scorri giorni a destra"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        )}
+
+        <div
+          ref={scrollContainerRef}
+          onScroll={checkScroll}
+          className="flex items-center gap-2 overflow-x-auto pb-2 scroll-smooth"
+        >
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={days.map((d) => d.id)}
+              strategy={horizontalListSortingStrategy}
+            >
+              {days.map((day) => (
+                <SortableDayTabItem
+                  key={day.id}
+                  day={day}
+                  isSelected={day.id === selectedDayId}
+                  onSelect={() => onSelectDay(day.id)}
+                  onOpenOptions={() => setActiveManageDay(day)}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
+        </div>
       </div>
 
       {/* Day Options Action Sheet / Modal */}
