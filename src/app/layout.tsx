@@ -3,19 +3,24 @@ import './globals.css';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { AuthProvider } from '@/context/AuthContext';
 import { PwaRegister } from '@/components/providers/PwaRegister';
+import { InstallPwaModal } from '@/components/pwa/InstallPwaModal';
+import { UpdateNotification } from '@/components/pwa/UpdateNotification';
 
 export const metadata: Metadata = {
   title: 'SnapLift - Workout Tracker',
-  description: 'Gestione schede di allenamento e tracciamento carichi mobile-first.',
+  description: 'Gestione schede di allenamento e tracciamento carichi mobile-first con supporto offline.',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'default',
+    statusBarStyle: 'black-translucent',
     title: 'SnapLift',
   },
   icons: {
     icon: '/icons/icon-192x192.png',
     apple: '/icons/apple-touch-icon.png',
+  },
+  formatDetection: {
+    telephone: false,
   },
 };
 
@@ -28,6 +33,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({
@@ -46,6 +52,8 @@ export default function RootLayout({
         >
           <AuthProvider>
             <PwaRegister />
+            <UpdateNotification />
+            <InstallPwaModal />
             {children}
           </AuthProvider>
         </ThemeProvider>

@@ -1,10 +1,10 @@
-import { MetadataRoute } from 'next';
+import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'SnapLift - Workout Tracker',
     short_name: 'SnapLift',
-    description: 'Gestisci i tuoi piani di allenamento e traccia i carichi in modo rapido e intuitivo.',
+    description: 'Gestione schede di allenamento e tracciamento carichi mobile-first con supporto offline.',
     start_url: '/',
     display: 'standalone',
     background_color: '#09090b',
@@ -18,6 +18,12 @@ export default function manifest(): MetadataRoute.Manifest {
         purpose: 'any',
       },
       {
+        src: '/icons/icon-maskable-192x192.png',
+        sizes: '192x192',
+        type: 'image/png',
+        purpose: 'maskable',
+      },
+      {
         src: '/icons/icon-512x512.png',
         sizes: '512x512',
         type: 'image/png',
@@ -28,6 +34,11 @@ export default function manifest(): MetadataRoute.Manifest {
         sizes: '512x512',
         type: 'image/png',
         purpose: 'maskable',
+      },
+      {
+        src: '/icons/apple-touch-icon.png',
+        sizes: '180x180',
+        type: 'image/png',
       },
     ],
   };

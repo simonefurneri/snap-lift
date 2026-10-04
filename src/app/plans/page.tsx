@@ -9,6 +9,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { PlanCard } from '@/components/plans/PlanCard';
 import { PlanModal } from '@/components/plans/PlanModal';
 import { ImportPlanModal } from '@/components/import/ImportPlanModal';
+import { ActiveWorkoutBanner } from '@/components/workout/ActiveWorkoutBanner';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
@@ -134,6 +135,9 @@ export default function PlansPage() {
       }}
     >
       <div className="flex flex-col gap-6">
+        {/* Active Workout Resume Banner */}
+        <ActiveWorkoutBanner />
+
         {/* Toast alert */}
         <AnimatePresence>
           {notification && (

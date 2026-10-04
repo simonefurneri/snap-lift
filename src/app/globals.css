@@ -77,11 +77,35 @@ body {
   background: rgba(160, 160, 160, 0.4);
 }
 
-/* Mobile viewport adjustments */
-.safe-bottom {
-  padding-bottom: env(safe-area-inset-bottom, 16px);
+/* Mobile safe area utilities */
+.safe-bottom, .pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-.safe-top {
-  padding-top: env(safe-area-inset-top, 16px);
+.safe-top, .pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.pl-safe {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.pr-safe {
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+.min-h-screen-safe {
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { workoutService, PreviousExerciseHistory } from '@/lib/services/workoutService';
 import { offlineSync } from '@/lib/services/offlineSync';
+import { offlineDb } from '@/lib/services/offlineDb';
+import { syncEngine } from '@/lib/services/syncEngine';
+import { useWakeLock } from '@/lib/hooks/useWakeLock';
+import { SyncIndicator } from '@/components/pwa/SyncIndicator';
 import { calculateProgression, ProgressionResult } from '@/lib/progression';
 import { VideoModal } from '@/components/ui/VideoModal';
 import { RestTimer } from '@/components/workout/RestTimer';
@@ -88,6 +92,25 @@ export function WorkoutRunner({
   const weightUnit = profile?.weight_unit || 'kg';
   const progressionPct = profile?.progression_pct || 2.5;
   const loadStep = profile?.load_step || 1.25;
+
+  // Keep screen awake during workout session
+  useWakeLock(true);
+
+  // Save active session in IndexedDB for interrupted workout recovery
+  useEffect(() => {
+    if (session?.id) {
+      offlineDb.saveActiveSession({
+        id: session.id,
+        user_id: session.user_id,
+        plan_id: initialPlan?.id || null,
+        plan_day_id: session.plan_day_id,
+        day_name: initialDay.name,
+        started_at: session.started_at,
+        updated_at: new Date().toISOString(),
+        is_active: true,
+      });
+    }
+  }, [session, initialDay.name]);
 
   // 1. Initialize stopwatch
   useEffect(() => {
@@ -249,6 +272,7 @@ export function WorkoutRunner({
     // Use entered weight or suggested weight as fallback if empty
     const weightNum = parseFloat(setRow.weight) || progressionResult.suggestedWeight || 0;
     const repsNum = parseInt(setRow.reps, 10) || currentExercise.reps_max || 0;
+    const logId = setRow.savedLogId || crypto.randomUUID();
 
     // Optimistically update UI
     setExerciseSetsMap((prev) => {
@@ -257,6 +281,7 @@ export function WorkoutRunner({
         list[index] = {
           ...list[index],
           isCompleted: nextCompleted,
+          savedLogId: logId,
           weight: setRow.weight || (nextCompleted ? weightNum.toString() : ''),
           reps: setRow.reps || (nextCompleted ? repsNum.toString() : ''),
         };
@@ -264,7 +289,7 @@ export function WorkoutRunner({
       return { ...prev, [currentKey]: list };
     });
 
-    // Save to local cache
+    // Save to local cache & active session state
     offlineSync.saveWorkoutLocally(session.id, {
       sessionId: session.id,
       updatedAt: new Date().toISOString(),
@@ -279,39 +304,31 @@ export function WorkoutRunner({
         setIsRestTimerOpen(true);
       }
 
-      // Persist to Supabase
-      try {
-        const saved = await workoutService.saveSetLog({
-          userId: user.id,
-          sessionId: session.id,
-          exerciseId: currentExercise.id,
-          exerciseName: currentExercise.name,
-          setNumber: setRow.setNumber,
-          weight: weightNum,
-          reps: repsNum,
-        });
-
-        setExerciseSetsMap((prev) => {
-          const list = [...(prev[currentKey] || [])];
-          if (list[index]) {
-            list[index].savedLogId = saved.id;
-          }
-          return { ...prev, [currentKey]: list };
-        });
-      } catch (err) {
-        console.warn('Network error saving set, queued locally:', err);
-      }
+      // Enqueue to persistent IndexedDB sync queue (idempotent upsert with client UUID)
+      await syncEngine.enqueueSetLog({
+        id: logId,
+        user_id: session.user_id,
+        session_id: session.id,
+        exercise_id: currentExercise.id || null,
+        exercise_name: currentExercise.name,
+        set_number: setRow.setNumber,
+        weight: weightNum,
+        reps: repsNum,
+        is_completed: true,
+      });
     } else {
-      // Remove or uncheck set
-      try {
-        await workoutService.deleteSetLog(
-          session.id,
-          { id: currentExercise.id, name: currentExercise.name },
-          setRow.setNumber
-        );
-      } catch (err) {
-        console.warn('Error deleting set log:', err);
-      }
+      // Enqueue uncompleted update
+      await syncEngine.enqueueSetLog({
+        id: logId,
+        user_id: session.user_id,
+        session_id: session.id,
+        exercise_id: currentExercise.id || null,
+        exercise_name: currentExercise.name,
+        set_number: setRow.setNumber,
+        weight: weightNum,
+        reps: repsNum,
+        is_completed: false,
+      });
     }
   };
 
@@ -337,7 +354,7 @@ export function WorkoutRunner({
     if (!currentKey || currentSets.length <= 1) return;
     const lastRow = currentSets[currentSets.length - 1];
 
-    if (lastRow.isCompleted) {
+    if (lastRow.isCompleted && lastRow.savedLogId) {
       try {
         await workoutService.deleteSetLog(
           session.id,
@@ -384,6 +401,7 @@ export function WorkoutRunner({
     setIsFinishing(true);
     try {
       await workoutService.finishSession(session.id);
+      await offlineDb.deleteActiveSession(session.id);
       offlineSync.clearWorkoutLocally(session.id);
       setIsFinishModalOpen(false);
       router.push('/plans');
@@ -397,6 +415,7 @@ export function WorkoutRunner({
   const handleConfirmCancelWorkout = async () => {
     try {
       await workoutService.cancelSession(session.id);
+      await offlineDb.deleteActiveSession(session.id);
       offlineSync.clearWorkoutLocally(session.id);
       router.push('/plans');
     } catch (e) {
@@ -427,14 +446,16 @@ export function WorkoutRunner({
             <span className="block text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
               Allenamento in corso
             </span>
-            <h1 className="text-sm sm:text-base font-extrabold truncate max-w-[160px] sm:max-w-xs text-zinc-900 dark:text-zinc-100">
+            <h1 className="text-sm sm:text-base font-extrabold truncate max-w-[140px] sm:max-w-xs text-zinc-900 dark:text-zinc-100">
               {initialDay.name} {initialPlan ? `— ${initialPlan.name}` : ''}
             </h1>
           </div>
         </div>
 
-        {/* Stopwatch & Finish Button */}
-        <div className="flex items-center gap-2.5">
+        {/* Sync status, Stopwatch & Finish Button */}
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          <SyncIndicator showLabel={false} />
+
           <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-zinc-800/80 text-zinc-900 dark:text-zinc-100 font-mono text-xs font-bold border border-slate-200/60 dark:border-zinc-700/60">
             <Clock className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
             <span>{formatStopwatch(elapsedSeconds)}</span>

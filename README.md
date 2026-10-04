@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SnapLift — Workout Tracker & PWA
 
-## Getting Started
+**SnapLift** è una Progressive Web App (PWA) mobile-first per la gestione delle schede di allenamento, il sovraccarico progressivo e il tracciamento dei carichi in palestra.
 
-First, run the development server:
+---
+
+## ✨ Funzionalità Principali
+
+- 📱 **Progressive Web App (PWA) Offline-First:**
+  - Installabile su iOS (Safari "Aggiungi a Home") e Android / Chrome / Desktop.
+  - Caching dell'app shell, pagina `/offline` di fallback e avviso di nuova versione disponibile.
+  - Funzionamento completo in palestra anche in assenza di rete con coda persistente **IndexedDB** e sincronizzazione automatica idempotente appena torna la connessione.
+  - Indicatore di sincronizzazione visivo discreto (Sincronizzato, In attesa, Offline).
+
+- 🏋️ **Esperienza in Allenamento (Gym Polish):**
+  - **Screen Wake Lock:** lo schermo rimane sempre acceso durante l'allenamento attivo.
+  - **Timer di recupero di precisione:** calcolato su timestamp reali (non sballa se lo smartphone va in stand-by), con allarme sonoro integrato Web Audio, vibrazione e notifiche in background.
+  - **Recupero sessione interrotta:** banner intelligente per riprendere subito un allenamento in corso se l'app viene chiusa per errore.
+
+- 🤖 **Importazione Schede con AI (Google Gemini):**
+  - Importa schede da fotocamera o screenshot (fino a 5 immagini contemporaneamente).
+  - Estrazione strutturata in JSON con fallback automatico multi-modello (`gemini-3.8-flash` $\rightarrow$ `gemini-3.7-flash` $\rightarrow$ `gemini-3.5-flash` $\rightarrow$ ...).
+  - Schermata di revisione interattiva con Drag & Drop (@dnd-kit) per riordinare giorni ed esercizi.
+
+- 📈 **Sovraccarico Progressivo & Grafici:**
+  - Suggerimento automatico carichi calcolato in base alle ripetizioni massime raggiunte nella sessione precedente.
+  - Grafici di carico massimo e volume totale settimana per settimana nella pagina *Progressi*.
+
+- 🔒 **Dati & Privacy (GDPR Compliance):**
+  - **Esportazione completa:** download dei propri dati in formato standard **JSON** e **CSV**.
+  - **Eliminazione totale:** cancellazione permanente di profilo, schede, sessioni, serie e utente Supabase Auth con doppia conferma.
+  - Pagine dedicate per Informativa sulla Privacy (`/privacy`) e Termini di Servizio (`/terms`).
+
+---
+
+## 🚀 Avvio in Sviluppo
 
 ```bash
+# Installa le dipendenze
+npm install
+
+# Avvia il server di sviluppo
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# Esegui i test unitari
+npm test
+
+# Esegui la build di produzione
+npm run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Per le istruzioni di pubblicazione in produzione su Vercel, consulta la guida dettagliata in [DEPLOY.md](file:///D:/Archivio/Workspace/Lavoro/snap-lift/DEPLOY.md).

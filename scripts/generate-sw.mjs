@@ -1,7 +1,21 @@
-// Auto-generated during build. Do not edit directly.
-const CACHE_VERSION = 'snaplift-build-1791130670550';
-const STATIC_CACHE = `snaplift-static-${CACHE_VERSION}`;
-const DYNAMIC_CACHE = `snaplift-dynamic-${CACHE_VERSION}`;
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const rootDir = path.resolve(__dirname, '..');
+
+// Generate version from Vercel commit SHA, Git SHA, or current build timestamp
+const gitSha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA;
+const buildVersion = gitSha ? `snaplift-${gitSha.slice(0, 8)}` : `snaplift-build-${Date.now()}`;
+
+console.log(`[generate-sw] Generating Service Worker with CACHE_VERSION: ${buildVersion}`);
+
+const swContent = `// Auto-generated during build. Do not edit directly.
+const CACHE_VERSION = '${buildVersion}';
+const STATIC_CACHE = \`snaplift-static-\${CACHE_VERSION}\`;
+const DYNAMIC_CACHE = \`snaplift-dynamic-\${CACHE_VERSION}\`;
 
 const PRECACHE_ASSETS = [
   '/',
@@ -73,7 +87,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Skip Supabase API, /api/*, Authentication Routes, and external video media
-  const isAuthRoute = AUTH_ROUTES.some((route) => url.pathname === route || url.pathname.startsWith(`${route}/`));
+  const isAuthRoute = AUTH_ROUTES.some((route) => url.pathname === route || url.pathname.startsWith(\`\${route}/\`));
   const isSupabase = url.hostname.includes('supabase.co') || url.pathname.includes('/rest/v1/') || url.pathname.includes('/auth/v1/');
   const isApiRoute = url.pathname.startsWith('/api/');
   const isExternalMedia = url.hostname.includes('youtube.com') || url.hostname.includes('googlevideo.com');
@@ -86,7 +100,7 @@ self.addEventListener('fetch', (event) => {
   if (
     url.pathname.startsWith('/_next/static/') ||
     url.pathname.startsWith('/icons/') ||
-    url.pathname.match(/\.(png|jpg|jpeg|svg|webp|woff2|woff|ttf|ico)$/)
+    url.pathname.match(/\\.(png|jpg|jpeg|svg|webp|woff2|woff|ttf|ico)$/)
   ) {
     event.respondWith(
       caches.match(request).then((cachedResponse) => {
@@ -162,3 +176,7 @@ self.addEventListener('fetch', (event) => {
     );
   }
 });
+`;
+
+fs.writeFileSync(path.join(rootDir, 'public', 'sw.js'), swContent, 'utf8');
+console.log(`[generate-sw] public/sw.js written successfully.`);

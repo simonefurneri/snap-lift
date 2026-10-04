@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Input } from '@/components/ui/Input';
@@ -8,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { workoutService } from '@/lib/services/workoutService';
+import { dataExportService } from '@/lib/services/dataExportService';
 import {
   User,
   Settings,
@@ -19,6 +21,10 @@ import {
   Moon,
   ShieldCheck,
   RotateCcw,
+  Download,
+  FileJson,
+  FileSpreadsheet,
+  Trash2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -34,6 +40,9 @@ export default function ProfilePage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isResetAllOpen, setIsResetAllOpen] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
+  const [isDeleteAccountDoubleConfirmOpen, setIsDeleteAccountDoubleConfirmOpen] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -299,18 +308,103 @@ export default function ProfilePage() {
           </p>
         </div>
 
+        {/* Data Export & Backup Section */}
+        <div className="bg-white dark:bg-zinc-900/90 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-5 sm:p-7 shadow-xs flex flex-col gap-4">
+          <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-zinc-800">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <Download className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-bold text-base text-zinc-900 dark:text-zinc-100">
+                Esporta i tuoi Dati
+              </h3>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                Scarica una copia completa dei tuoi piani, sessioni e serie in formato standard.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              onClick={async () => {
+                if (!user) return;
+                try {
+                  await dataExportService.exportAllDataAsJson(user.id);
+                  showToast('File JSON scaricato con successo');
+                } catch (e) {
+                  showToast('Errore durante l\'esportazione JSON');
+                }
+              }}
+              className="w-full sm:w-auto justify-center"
+            >
+              <FileJson className="w-4 h-4 mr-2 text-emerald-500" />
+              <span>Esporta Tutto (JSON)</span>
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              onClick={async () => {
+                if (!user) return;
+                try {
+                  await dataExportService.exportWorkoutsAsCsv(user.id);
+                  showToast('File CSV scaricato con successo');
+                } catch (e) {
+                  showToast('Errore durante l\'esportazione CSV');
+                }
+              }}
+              className="w-full sm:w-auto justify-center"
+            >
+              <FileSpreadsheet className="w-4 h-4 mr-2 text-emerald-500" />
+              <span>Esporta Storico Serie (CSV)</span>
+            </Button>
+          </div>
+        </div>
+
         {/* Data Management & Workout Reset Section */}
-        <div className="bg-white dark:bg-zinc-900/90 border border-red-200/60 dark:border-red-950/50 rounded-3xl p-5 sm:p-7 shadow-xs">
+        <div className="bg-white dark:bg-zinc-900/90 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-5 sm:p-7 shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <RotateCcw className="w-4 h-4 text-red-500" />
-                <h3 className="font-bold text-sm text-red-600 dark:text-red-400">
-                  Zona Pericolo — Azzeramento Dati
+                <RotateCcw className="w-4 h-4 text-amber-500" />
+                <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
+                  Azzeramento Storico Allenamenti
                 </h3>
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Elimina tutti i registri delle serie e le sessioni di allenamento salvate per ripartire da zero.
+                Elimina tutti i registri delle serie e le sessioni mantenendo intatte le tue schede.
+              </p>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsResetAllOpen(true)}
+              className="shrink-0 text-amber-600 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+            >
+              <RotateCcw className="w-4 h-4 mr-1.5" />
+              <span>Azzera Progressi</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Account Deletion (Danger Zone) */}
+        <div className="bg-white dark:bg-zinc-900/90 border border-red-200/80 dark:border-red-950/60 rounded-3xl p-5 sm:p-7 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Trash2 className="w-4 h-4 text-red-500" />
+                <h3 className="font-bold text-sm text-red-600 dark:text-red-400">
+                  Zona Pericolo — Elimina Account Definitivamente
+                </h3>
+              </div>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                Cancella per sempre il tuo account, tutte le schede, le sessioni e i dati correlati.
               </p>
             </div>
 
@@ -318,20 +412,31 @@ export default function ProfilePage() {
               type="button"
               variant="danger"
               size="md"
-              onClick={() => setIsResetAllOpen(true)}
+              onClick={() => setIsDeleteAccountOpen(true)}
               className="shrink-0"
             >
-              <RotateCcw className="w-4 h-4 mr-1.5" />
-              <span>Azzera Tutti i Progressi</span>
+              <Trash2 className="w-4 h-4 mr-1.5" />
+              <span>Elimina Account</span>
             </Button>
           </div>
+        </div>
+
+        {/* Legal & Privacy Links */}
+        <div className="flex flex-wrap items-center justify-center gap-6 py-4 text-xs text-zinc-400 border-t border-slate-200/60 dark:border-zinc-800">
+          <Link href="/privacy" className="hover:text-emerald-500 transition-colors underline underline-offset-4">
+            Informativa sulla Privacy (GDPR)
+          </Link>
+          <span>•</span>
+          <Link href="/terms" className="hover:text-emerald-500 transition-colors underline underline-offset-4">
+            Termini di Servizio
+          </Link>
         </div>
 
         {/* Confirm Reset All Dialog */}
         <ConfirmDialog
           isOpen={isResetAllOpen}
           title="Azzera TUTTI i progressi?"
-          message="Sei sicuro di voler eliminare definitivamente tutto lo storico dei tuoi allenamenti? Questa azione non può essere annullata."
+          message="Sei sicuro di voler eliminare definitivamente tutto lo storico dei tuoi allenamenti? Le schede rimarranno salvate. Questa azione non può essere annullata."
           confirmLabel="Azzera Tutto"
           cancelLabel="Annulla"
           isDanger={true}
@@ -351,6 +456,54 @@ export default function ProfilePage() {
             }
           }}
           onClose={() => setIsResetAllOpen(false)}
+        />
+
+        {/* Confirm Delete Account Dialog (Step 1) */}
+        <ConfirmDialog
+          isOpen={isDeleteAccountOpen}
+          title="Eliminare definitivamente l'account?"
+          message="Attenzione: tutti i tuoi dati (schede, allenamenti, storico e profilo) verranno rimossi irreversibilmente dai server. Vuoi procedere?"
+          confirmLabel="Continua all'eliminazione"
+          cancelLabel="Annulla"
+          isDanger={true}
+          onConfirm={() => {
+            setIsDeleteAccountOpen(false);
+            setIsDeleteAccountDoubleConfirmOpen(true);
+          }}
+          onClose={() => setIsDeleteAccountOpen(false)}
+        />
+
+        {/* Confirm Delete Account Dialog (Step 2 - Final Double Confirmation) */}
+        <ConfirmDialog
+          isOpen={isDeleteAccountDoubleConfirmOpen}
+          title="CONFERMA DEFINITIVA ELIMINAZIONE"
+          message="Questa operazione è ISTANTANEA e IRREVERSIBILE. Confermi di voler cancellare per sempre il tuo account e tutti i dati?"
+          confirmLabel="Cancella Definitivamente Tutto"
+          cancelLabel="Ripensaci"
+          isDanger={true}
+          isLoading={isDeletingAccount}
+          onConfirm={async () => {
+            setIsDeletingAccount(true);
+            try {
+              const res = await fetch('/api/user/delete-account', {
+                method: 'POST',
+              });
+              if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Errore durante l\'eliminazione');
+              }
+              await signOut();
+              if (typeof window !== 'undefined') {
+                localStorage.clear();
+                window.location.href = '/register';
+              }
+            } catch (err: any) {
+              console.error('Error deleting account:', err);
+              showToast(err.message || 'Errore durante l\'eliminazione dell\'account');
+              setIsDeletingAccount(false);
+            }
+          }}
+          onClose={() => setIsDeleteAccountDoubleConfirmOpen(false)}
         />
       </div>
     </AppLayout>

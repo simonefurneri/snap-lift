@@ -234,6 +234,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
+      // 1. Clear IndexedDB local data (offline logs, active sessions, history cache)
+      try {
+        const { offlineDb } = await import('@/lib/services/offlineDb');
+        await offlineDb.clearAllData();
+      } catch (dbErr) {
+        console.warn('Could not clear IndexedDB on logout:', dbErr);
+      }
+
+      // 2. Clear Service Worker caches
+      try {
+        if (typeof window !== 'undefined' && 'caches' in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((k) => caches.delete(k)));
+        }
+        if (typeof navigator !== 'undefined' && navigator.serviceWorker?.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHES' });
+        }
+      } catch (cacheErr) {
+        console.warn('Could not clear caches on logout:', cacheErr);
+      }
+
+      // 3. Supabase Auth sign out
       const supabase = createClient();
       await supabase.auth.signOut();
     } catch (e) {
