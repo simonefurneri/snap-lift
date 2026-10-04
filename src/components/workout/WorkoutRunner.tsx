@@ -747,19 +747,20 @@ export function WorkoutRunner({
       </main>
 
       {/* 5. BOTTOM NAVIGATION BAR (Previous / Next Exercise Stepper) */}
-      <footer className="sticky bottom-0 z-40 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-zinc-800 px-4 py-3">
-        <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
+      <footer className="sticky bottom-0 z-40 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-zinc-800 px-3 sm:px-4 py-3">
+        <div className="max-w-3xl mx-auto flex items-center justify-between gap-2 sm:gap-3">
           <button
             type="button"
             onClick={() => setCurrentExerciseIndex((prev) => Math.max(0, prev - 1))}
             disabled={currentExerciseIndex === 0}
-            className="flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-2xl bg-slate-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold text-sm disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
+            className="flex items-center gap-1.5 min-h-[44px] px-3 sm:px-4 py-2 rounded-2xl bg-slate-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold text-xs sm:text-sm disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer shrink-0"
+            aria-label="Esercizio precedente"
           >
-            <ChevronLeft className="w-4 h-4" />
-            <span>Precedente</span>
+            <ChevronLeft className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline">Precedente</span>
           </button>
 
-          <span className="text-xs font-bold text-zinc-400">
+          <span className="text-xs sm:text-sm font-extrabold text-zinc-500 dark:text-zinc-400 shrink-0 whitespace-nowrap px-2.5 py-1 bg-slate-100/80 dark:bg-zinc-800/80 rounded-xl">
             {currentExerciseIndex + 1} / {exercises.length}
           </span>
 
@@ -767,19 +768,19 @@ export function WorkoutRunner({
             <button
               type="button"
               onClick={() => setCurrentExerciseIndex((prev) => Math.min(exercises.length - 1, prev + 1))}
-              className="flex items-center gap-2 min-h-[44px] px-5 py-2 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-sm shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
+              className="flex items-center gap-1.5 min-h-[44px] px-3.5 sm:px-5 py-2 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-xs sm:text-sm shadow-md shadow-emerald-500/20 transition-all cursor-pointer shrink-0 whitespace-nowrap"
             >
               <span>Successivo</span>
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-4 h-4 shrink-0" />
             </button>
           ) : (
             <button
               type="button"
               onClick={() => setIsFinishModalOpen(true)}
-              className="flex items-center gap-2 min-h-[44px] px-5 py-2 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-sm shadow-lg shadow-emerald-500/30 transition-all cursor-pointer animate-pulse"
+              className="flex items-center gap-1.5 min-h-[44px] px-3.5 sm:px-5 py-2 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-xs sm:text-sm shadow-lg shadow-emerald-500/30 transition-all cursor-pointer animate-pulse shrink-0 whitespace-nowrap"
             >
-              <Trophy className="w-4 h-4" />
-              <span>Completa Allenamento</span>
+              <Trophy className="w-4 h-4 shrink-0" />
+              <span>Completa<span className="hidden sm:inline"> Allenamento</span></span>
             </button>
           )}
         </div>

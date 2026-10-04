@@ -8,6 +8,7 @@ import { PlanWithDetails } from '@/types/database.types';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PlanCard } from '@/components/plans/PlanCard';
 import { PlanModal } from '@/components/plans/PlanModal';
+import { ImportPlanModal } from '@/components/import/ImportPlanModal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
@@ -16,6 +17,8 @@ import {
   Dumbbell,
   Search,
   CheckCircle2,
+  Camera,
+  Sparkles,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -29,6 +32,7 @@ export default function PlansPage() {
 
   // Modals state
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [planToEdit, setPlanToEdit] = useState<PlanWithDetails | null>(null);
   const [planToDelete, setPlanToDelete] = useState<PlanWithDetails | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -145,7 +149,7 @@ export default function PlansPage() {
           )}
         </AnimatePresence>
 
-        {/* Header Title + Action Button */}
+        {/* Header Title + Action Buttons */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-zinc-100 tracking-tight">
@@ -156,18 +160,30 @@ export default function PlansPage() {
             </p>
           </div>
 
-          <Button
-            variant="primary"
-            size="lg"
-            onClick={() => {
-              setPlanToEdit(null);
-              setIsPlanModalOpen(true);
-            }}
-            className="shadow-lg shadow-emerald-500/25 shrink-0"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Crea Nuova Scheda</span>
-          </Button>
+          <div className="flex items-center gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => setIsImportModalOpen(true)}
+              className="border-emerald-500/30 hover:border-emerald-500 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 shadow-xs"
+            >
+              <Camera className="w-5 h-5 mr-1.5 text-emerald-500" />
+              <span>Importa da Foto</span>
+            </Button>
+
+            <Button
+              variant="primary"
+              size="lg"
+              onClick={() => {
+                setPlanToEdit(null);
+                setIsPlanModalOpen(true);
+              }}
+              className="shadow-lg shadow-emerald-500/25 shrink-0"
+            >
+              <Plus className="w-5 h-5" />
+              <span>Nuovo Piano</span>
+            </Button>
+          </div>
         </div>
 
         {/* Search Bar & Total Counter */}
@@ -207,13 +223,15 @@ export default function PlansPage() {
             description={
               searchQuery
                 ? 'Prova a modificare i termini di ricerca.'
-                : 'Crea il tuo primo piano di allenamento personalizzato per iniziare.'
+                : 'Crea il tuo primo piano di allenamento o importalo da una foto con AI.'
             }
-            actionLabel={searchQuery ? undefined : 'Crea la tua prima scheda'}
+            actionLabel={searchQuery ? undefined : 'Crea nuova scheda'}
             onAction={() => {
               setPlanToEdit(null);
               setIsPlanModalOpen(true);
             }}
+            secondaryActionLabel={searchQuery ? undefined : 'Importa da foto con AI'}
+            onSecondaryAction={() => setIsImportModalOpen(true)}
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -245,6 +263,18 @@ export default function PlansPage() {
         }}
         onSubmit={handleSavePlan}
         planToEdit={planToEdit}
+      />
+
+      {/* AI Import Plan Modal */}
+      <ImportPlanModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={(newId) => {
+          setIsImportModalOpen(false);
+          showToast('Scheda importata con successo!');
+          loadPlans();
+          router.push(`/plans/${newId}`);
+        }}
       />
 
       {/* Delete Confirmation Dialog */}
