@@ -1,0 +1,358 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { workoutService } from '@/lib/services/workoutService';
+import {
+  User,
+  Settings,
+  Scale,
+  TrendingUp,
+  Percent,
+  LogOut,
+  CheckCircle2,
+  Moon,
+  ShieldCheck,
+  RotateCcw,
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+export default function ProfilePage() {
+  const { user, profile, updateProfile, signOut } = useAuth();
+
+  const [displayName, setDisplayName] = useState('');
+  const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>('kg');
+  const [progressionPct, setProgressionPct] = useState(2.5);
+  const [loadStep, setLoadStep] = useState(1.25);
+  const [loading, setLoading] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isResetAllOpen, setIsResetAllOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+
+  useEffect(() => {
+    if (profile) {
+      setDisplayName(profile.display_name || '');
+      setWeightUnit(profile.weight_unit || 'kg');
+      setProgressionPct(profile.progression_pct || 2.5);
+      setLoadStep(profile.load_step || 1.25);
+    }
+  }, [profile]);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    await signOut();
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { error } = await updateProfile({
+        display_name: displayName.trim() || null,
+        weight_unit: weightUnit,
+        progression_pct: Number(progressionPct),
+        load_step: Number(loadStep),
+      });
+
+      if (error) {
+        showToast(`Errore: ${error}`);
+      } else {
+        showToast('Profilo aggiornato con successo');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <AppLayout>
+      <div className="flex flex-col gap-6 max-w-2xl mx-auto">
+        {/* Toast Alert */}
+        <AnimatePresence>
+          {toastMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 bg-emerald-600 text-white rounded-2xl shadow-xl text-xs font-semibold"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>{toastMessage}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Page Header */}
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-zinc-100 tracking-tight">
+            Profilo & Impostazioni
+          </h1>
+          <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
+            Personalizza le tue preferenze di calcolo e unità di misura per i sovraccarichi.
+          </p>
+        </div>
+
+        {/* User Card */}
+        <div className="bg-white dark:bg-zinc-900/90 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-xs flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-black text-xl flex items-center justify-center border border-emerald-500/20">
+              {((profile?.display_name || user?.email || user?.user_metadata?.full_name || 'U')[0] || 'U').toUpperCase()}
+            </div>
+            <div>
+              <h2 className="font-bold text-base sm:text-lg text-zinc-900 dark:text-zinc-100">
+                {profile?.display_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || ''}
+              </h2>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                {user?.email || ''}
+              </p>
+            </div>
+          </div>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSignOut}
+            isLoading={isSigningOut}
+            className="text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+          >
+            <LogOut className="w-4 h-4 mr-1.5" />
+            <span className="hidden sm:inline">Disconnetti</span>
+          </Button>
+        </div>
+
+        {/* Profile Settings Form */}
+        <div className="bg-white dark:bg-zinc-900/90 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-5 sm:p-7 shadow-xs">
+          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100 dark:border-zinc-800">
+            <Settings className="w-5 h-5 text-emerald-500" />
+            <h3 className="font-bold text-base text-zinc-900 dark:text-zinc-100">
+              Parametri di Progressione
+            </h3>
+          </div>
+
+          <form onSubmit={handleSave} className="flex flex-col gap-5">
+            <Input
+              label="Nome Visualizzato"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Il tuo nome"
+              leftIcon={<User className="w-4 h-4" />}
+            />
+
+            {/* Weight Unit selection */}
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 block mb-2">
+                Unità di Misura Peso
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setWeightUnit('kg')}
+                  className={`min-h-[44px] rounded-xl font-bold text-xs flex items-center justify-center gap-2 border transition-all cursor-pointer ${
+                    weightUnit === 'kg'
+                      ? 'bg-emerald-500 text-zinc-950 border-emerald-500 shadow-xs'
+                      : 'bg-zinc-50 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                  }`}
+                >
+                  <Scale className="w-4 h-4" />
+                  <span>Chilogrammi (kg)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setWeightUnit('lbs')}
+                  className={`min-h-[44px] rounded-xl font-bold text-xs flex items-center justify-center gap-2 border transition-all cursor-pointer ${
+                    weightUnit === 'lbs'
+                      ? 'bg-emerald-500 text-zinc-950 border-emerald-500 shadow-xs'
+                      : 'bg-zinc-50 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                  }`}
+                >
+                  <Scale className="w-4 h-4" />
+                  <span>Libbre (lbs)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Step Increment and Progression Percentage */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Input
+                  label={`Passo di Arrotondamento / Minimo Carico (${weightUnit})`}
+                  type="number"
+                  step="0.25"
+                  min="0.25"
+                  value={loadStep}
+                  onChange={(e) => setLoadStep(parseFloat(e.target.value) || 1.25)}
+                  helperText="Taglio micro-carichi per bilanciere/manubri"
+                  leftIcon={<TrendingUp className="w-4 h-4" />}
+                />
+                <div className="flex items-center gap-1.5 mt-2">
+                  {[0.5, 1.0, 1.25, 2.5].map((stepVal) => (
+                    <button
+                      key={stepVal}
+                      type="button"
+                      onClick={() => setLoadStep(stepVal)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        loadStep === stepVal
+                          ? 'bg-emerald-500 text-zinc-950 shadow-xs'
+                          : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                      }`}
+                    >
+                      {stepVal} {weightUnit}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <Input
+                  label="Percentuale di Progressione (2% - 5%)"
+                  type="number"
+                  step="0.5"
+                  min="1"
+                  max="15"
+                  value={progressionPct}
+                  onChange={(e) => setProgressionPct(parseFloat(e.target.value) || 2.5)}
+                  helperText="Incremento applicato quando completi tutte le reps al max"
+                  leftIcon={<Percent className="w-4 h-4" />}
+                />
+                <div className="flex items-center gap-1.5 mt-2">
+                  {[2.0, 2.5, 3.0, 5.0].map((pctVal) => (
+                    <button
+                      key={pctVal}
+                      type="button"
+                      onClick={() => setProgressionPct(pctVal)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        progressionPct === pctVal
+                          ? 'bg-emerald-500 text-zinc-950 shadow-xs'
+                          : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                      }`}
+                    >
+                      +{pctVal}%
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 flex justify-end">
+              <Button
+                type="submit"
+                variant="primary"
+                size="md"
+                isLoading={loading}
+              >
+                Salva Impostazioni
+              </Button>
+            </div>
+          </form>
+        </div>
+
+        {/* Appearance & Theme Section */}
+        <div className="bg-white dark:bg-zinc-900/90 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-5 sm:p-7 shadow-xs">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-700 dark:text-zinc-300">
+                <Moon className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
+                  Tema Interfaccia
+                </h3>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  Scegli tra chiaro, scuro o sincronizza con il sistema operativo
+                </p>
+              </div>
+            </div>
+
+            <ThemeToggle />
+          </div>
+        </div>
+
+        {/* Security & Database Status */}
+        <div className="bg-white dark:bg-zinc-900/90 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-5 sm:p-7 shadow-xs">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
+                Sicurezza & Protezione Dati (RLS)
+              </h3>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                Row Level Security attivo su tutte le tabelle Postgres.
+              </p>
+            </div>
+          </div>
+          <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+            Ogni piano di allenamento, esercizio e serie registrata è isolato e crittografato mediante il tuo identificatore utente univoco.
+          </p>
+        </div>
+
+        {/* Data Management & Workout Reset Section */}
+        <div className="bg-white dark:bg-zinc-900/90 border border-red-200/60 dark:border-red-950/50 rounded-3xl p-5 sm:p-7 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <RotateCcw className="w-4 h-4 text-red-500" />
+                <h3 className="font-bold text-sm text-red-600 dark:text-red-400">
+                  Zona Pericolo — Azzeramento Dati
+                </h3>
+              </div>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                Elimina tutti i registri delle serie e le sessioni di allenamento salvate per ripartire da zero.
+              </p>
+            </div>
+
+            <Button
+              type="button"
+              variant="danger"
+              size="md"
+              onClick={() => setIsResetAllOpen(true)}
+              className="shrink-0"
+            >
+              <RotateCcw className="w-4 h-4 mr-1.5" />
+              <span>Azzera Tutti i Progressi</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Confirm Reset All Dialog */}
+        <ConfirmDialog
+          isOpen={isResetAllOpen}
+          title="Azzera TUTTI i progressi?"
+          message="Sei sicuro di voler eliminare definitivamente tutto lo storico dei tuoi allenamenti? Questa azione non può essere annullata."
+          confirmLabel="Azzera Tutto"
+          cancelLabel="Annulla"
+          isDanger={true}
+          isLoading={isResetting}
+          onConfirm={async () => {
+            if (!user) return;
+            setIsResetting(true);
+            try {
+              await workoutService.resetAllProgress(user.id);
+              showToast('Tutti i progressi e le sessioni sono stati azzerati con successo');
+              setIsResetAllOpen(false);
+            } catch (err) {
+              console.error('Error resetting all progress:', err);
+              showToast('Errore durante l\'azzeramento');
+            } finally {
+              setIsResetting(false);
+            }
+          }}
+          onClose={() => setIsResetAllOpen(false)}
+        />
+      </div>
+    </AppLayout>
+  );
+}
