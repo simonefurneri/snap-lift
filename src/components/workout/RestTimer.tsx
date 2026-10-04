@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, Plus, Minus, X, Bell } from 'lucide-react';
-import { playTimerCompleteBeep, triggerVibration } from '@/lib/utils/audio';
+import { playTimerCompleteBeep, triggerVibration, unlockAudio } from '@/lib/utils/audio';
 
 interface RestTimerProps {
   initialSeconds: number;
@@ -29,9 +29,10 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
     }
   }, []);
 
-  // Initialize or reset timer
+  // Initialize or reset timer & warm up audio pipeline
   useEffect(() => {
     if (isOpen) {
+      unlockAudio();
       setTimeLeft(initialSeconds);
       setTotalSeconds(initialSeconds);
       targetEndTimeRef.current = Date.now() + initialSeconds * 1000;
