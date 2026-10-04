@@ -432,7 +432,7 @@ export function WorkoutRunner({
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#09090b] text-slate-900 dark:text-zinc-100 flex flex-col justify-between overflow-x-hidden max-w-full">
       {/* 1. TOP APP BAR */}
-      <header className="sticky top-0 z-40 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border-b border-slate-200 dark:border-zinc-800 px-3 sm:px-4 pt-safe pb-2.5 flex items-center justify-between gap-2 max-w-full overflow-hidden">
+      <header className="sticky top-0 z-40 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border-b border-slate-200 dark:border-zinc-800 px-4 sm:px-6 md:px-8 pt-[calc(0.875rem+env(safe-area-inset-top,0px))] pb-3.5 sm:py-4 flex items-center justify-between gap-3 max-w-full">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           <button
             type="button"
@@ -472,7 +472,7 @@ export function WorkoutRunner({
       </header>
 
       {/* 2. EXERCISE CAROUSEL / STEPPER TABS */}
-      <div className="bg-white/50 dark:bg-zinc-900/40 border-b border-slate-200/80 dark:border-zinc-800/80 px-4 py-2 overflow-x-auto flex items-center gap-2 no-scrollbar">
+      <div className="bg-white/50 dark:bg-zinc-900/40 border-b border-slate-200/80 dark:border-zinc-800/80 px-4 sm:px-6 md:px-8 py-2.5 overflow-x-auto flex items-center gap-2 no-scrollbar">
         {exercises.map((ex, idx) => {
           const isCurrent = idx === currentExerciseIndex;
           const isDone = isExerciseFullyCompleted(ex.name);
@@ -768,7 +768,7 @@ export function WorkoutRunner({
       </main>
 
       {/* 5. BOTTOM NAVIGATION BAR (Previous / Next Exercise Stepper) */}
-      <footer className="sticky bottom-0 z-40 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-zinc-800 px-3 sm:px-4 pt-3 pb-safe">
+      <footer className="sticky bottom-0 z-40 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-zinc-800 px-4 sm:px-6 md:px-8 pt-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom,0px))] sm:py-4">
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-2 sm:gap-3">
           <button
             type="button"
