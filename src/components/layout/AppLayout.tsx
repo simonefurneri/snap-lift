@@ -165,8 +165,8 @@ export function AppLayout({ children, onOpenNewPlan }: AppLayoutProps) {
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 pb-20 md:pb-8">
+      {/* Main Content Area with generous bottom clearance for fixed mobile nav bar */}
+      <div className="flex-1 flex flex-col min-w-0 pb-[calc(6.5rem+env(safe-area-inset-bottom,0px))] md:pb-8">
         {/* Mobile Header */}
         <header className="md:hidden sticky top-0 z-30 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-slate-200 dark:border-zinc-800 px-4 pt-safe pb-3 flex items-center justify-between">
           <Link href="/plans" className="flex items-center gap-2 shrink-0">
