@@ -89,7 +89,21 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Rate limit check (max 10 imports per day)
+    // 2. Check user approval status (must be approved to use Gemini AI features)
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('is_approved')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile || !profile.is_approved) {
+      return NextResponse.json(
+        { error: 'Account in attesa di approvazione. Non puoi utilizzare le funzionalità di importazione AI.' },
+        { status: 403 }
+      );
+    }
+
+    // 3. Rate limit check (max 10 imports per day)
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
 

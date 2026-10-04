@@ -16,6 +16,7 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<{ error: string | null; message?: string }>;
   updatePassword: (password: string) => Promise<{ error: string | null }>;
   updateProfile: (updates: Partial<Profile>) => Promise<{ error: string | null }>;
+  refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -86,15 +87,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error && error.code === 'PGRST116') {
         const newProfile: Profile = {
           id: userId,
+          email: user?.email || null,
           display_name: user?.user_metadata?.full_name || 'Atleta',
           weight_unit: 'kg',
           progression_pct: 2.5,
           load_step: 1.25,
+          is_approved: false,
+          is_admin: false,
+          approved_at: null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
         await supabase.from('profiles').insert(newProfile as any);
-        setProfile(newProfile);
+        // Re-read back to get database generated state
+        const { data: refreshed } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
+        setProfile((refreshed as Profile) || newProfile);
       } else if (data) {
         setProfile(data as Profile);
       }
@@ -102,6 +113,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Error fetching profile:', e);
     }
   }
+
+  const refreshProfile = async () => {
+    if (user?.id) {
+      await fetchProfile(user.id);
+    }
+  };
 
   const signInWithEmail = async (email: string, password: string) => {
     try {
@@ -286,6 +303,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         resetPassword,
         updatePassword,
         updateProfile,
+        refreshProfile,
         signOut,
       }}
     >

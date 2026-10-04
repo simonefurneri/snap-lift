@@ -27,10 +27,13 @@ export async function GET(request: Request) {
                               'Atleta';
           const newProfile: ProfileInsert = {
             id: user.id,
+            email: user.email || null,
             display_name: displayName,
             weight_unit: 'kg',
             progression_pct: 2.5,
             load_step: 1.25,
+            is_approved: false,
+            is_admin: false,
           };
           await supabase.from('profiles').insert(newProfile as any);
         }

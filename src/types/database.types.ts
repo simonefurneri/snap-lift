@@ -12,28 +12,40 @@ export type Database = {
       profiles: {
         Row: {
           id: string;
+          email: string | null;
           display_name: string | null;
           weight_unit: 'kg' | 'lbs';
           progression_pct: number;
           load_step: number;
+          is_approved: boolean;
+          is_admin: boolean;
+          approved_at: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id: string;
+          email?: string | null;
           display_name?: string | null;
           weight_unit?: 'kg' | 'lbs';
           progression_pct?: number;
           load_step?: number;
+          is_approved?: boolean;
+          is_admin?: boolean;
+          approved_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
+          email?: string | null;
           display_name?: string | null;
           weight_unit?: 'kg' | 'lbs';
           progression_pct?: number;
           load_step?: number;
+          is_approved?: boolean;
+          is_admin?: boolean;
+          approved_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

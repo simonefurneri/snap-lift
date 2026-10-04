@@ -15,6 +15,7 @@ import {
   TrendingUp,
   LogOut,
   ChevronRight,
+  ShieldCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { motion } from 'framer-motion';
@@ -55,6 +56,17 @@ export function AppLayout({ children, onOpenNewPlan }: AppLayoutProps) {
       icon: UserIcon,
       active: pathname === '/profile',
     },
+    ...(profile?.is_admin
+      ? [
+          {
+            href: '/admin/users',
+            label: 'Gestione Utenti',
+            icon: ShieldCheck,
+            active: pathname.startsWith('/admin/users'),
+            adminOnly: true,
+          },
+        ]
+      : []),
   ];
 
   const handleCreatePlan = async (data: { name: string; notes?: string }) => {
@@ -198,7 +210,7 @@ export function AppLayout({ children, onOpenNewPlan }: AppLayoutProps) {
       {/* Mobile Bottom Navigation Bar (Fixed with Always Visible + Crea button) */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-zinc-800 px-3 py-1.5 safe-bottom">
         <div className="flex items-center justify-around">
-          {navItems.map((item) => {
+          {navItems.filter(item => !item.adminOnly).map((item) => {
             const Icon = item.icon;
             return (
               <Link

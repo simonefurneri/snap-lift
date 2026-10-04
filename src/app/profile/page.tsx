@@ -25,8 +25,12 @@ import {
   FileJson,
   FileSpreadsheet,
   Trash2,
+  Users,
+  ChevronRight,
+  ShieldAlert,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '@/lib/utils/cn';
 
 export default function ProfilePage() {
   const { user, profile, updateProfile, signOut } = useAuth();
@@ -38,6 +42,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [pendingUsersCount, setPendingUsersCount] = useState<number | null>(null);
   const [isResetAllOpen, setIsResetAllOpen] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
@@ -50,6 +55,18 @@ export default function ProfilePage() {
       setWeightUnit(profile.weight_unit || 'kg');
       setProgressionPct(profile.progression_pct || 2.5);
       setLoadStep(profile.load_step || 1.25);
+
+      if (profile.is_admin) {
+        // Fetch pending count
+        fetch('/api/admin/users')
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (data && typeof data.totalPending === 'number') {
+              setPendingUsersCount(data.totalPending);
+            }
+          })
+          .catch(() => {});
+      }
     }
   }, [profile]);
 
@@ -113,16 +130,16 @@ export default function ProfilePage() {
         </div>
 
         {/* User Card */}
-        <div className="bg-white dark:bg-zinc-900/90 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-xs flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-black text-xl flex items-center justify-center border border-emerald-500/20">
+        <div className="bg-white dark:bg-zinc-900/90 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-4 sm:p-6 shadow-xs flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3.5 sm:gap-4 min-w-0 flex-1">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-black text-lg sm:text-xl flex items-center justify-center border border-emerald-500/20 shrink-0 aspect-square">
               {((profile?.display_name || user?.email || user?.user_metadata?.full_name || 'U')[0] || 'U').toUpperCase()}
             </div>
-            <div>
-              <h2 className="font-bold text-base sm:text-lg text-zinc-900 dark:text-zinc-100">
+            <div className="min-w-0 flex-1">
+              <h2 className="font-bold text-sm sm:text-lg text-zinc-900 dark:text-zinc-100 truncate">
                 {profile?.display_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || ''}
               </h2>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
                 {user?.email || ''}
               </p>
             </div>
@@ -133,12 +150,55 @@ export default function ProfilePage() {
             size="sm"
             onClick={handleSignOut}
             isLoading={isSigningOut}
-            className="text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+            className="text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 shrink-0"
           >
             <LogOut className="w-4 h-4 mr-1.5" />
             <span className="hidden sm:inline">Disconnetti</span>
           </Button>
         </div>
+
+        {/* Admin Management Card (Visible only to Admin) */}
+        {profile?.is_admin && (
+          <Link
+            href="/admin/users"
+            className="group bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-transparent border border-emerald-500/30 dark:border-emerald-500/20 hover:border-emerald-500/60 rounded-3xl p-4 sm:p-5 md:p-6 shadow-xs flex items-center justify-between gap-3 sm:gap-4 transition-all hover:scale-[1.01]"
+          >
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-emerald-500 text-zinc-950 flex items-center justify-center font-black shadow-md shadow-emerald-500/20 group-hover:scale-105 transition-transform shrink-0 aspect-square">
+                <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                  <h3 className="font-extrabold text-sm sm:text-base text-zinc-900 dark:text-zinc-100 tracking-tight">
+                    Gestione Utenti
+                  </h3>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500 text-zinc-950 shrink-0 leading-none">
+                    ADMIN
+                  </span>
+                </div>
+                <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-snug">
+                  Approva le registrazioni, revoca accessi ed elimina utenti.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0 pl-1">
+              {typeof pendingUsersCount === 'number' && (
+                <span
+                  className={cn(
+                    'inline-flex items-center justify-center px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-black shadow-xs shrink-0 whitespace-nowrap leading-none',
+                    pendingUsersCount > 0
+                      ? 'bg-amber-500 text-white animate-pulse'
+                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700'
+                  )}
+                >
+                  {pendingUsersCount > 0 ? `${pendingUsersCount} in attesa` : 'Nessuno in attesa'}
+                </span>
+              )}
+              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-400 group-hover:text-emerald-500 group-hover:translate-x-0.5 transition-all shrink-0" />
+            </div>
+          </Link>
+        )}
 
         {/* Profile Settings Form */}
         <div className="bg-white dark:bg-zinc-900/90 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-5 sm:p-7 shadow-xs">

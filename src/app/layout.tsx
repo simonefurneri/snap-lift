@@ -5,6 +5,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import { PwaRegister } from '@/components/providers/PwaRegister';
 import { InstallPwaModal } from '@/components/pwa/InstallPwaModal';
 import { UpdateNotification } from '@/components/pwa/UpdateNotification';
+import { ApprovalGuard } from '@/components/auth/ApprovalGuard';
 
 export const metadata: Metadata = {
   title: 'SnapLift - Workout Tracker',
@@ -54,7 +55,7 @@ export default function RootLayout({
             <PwaRegister />
             <UpdateNotification />
             <InstallPwaModal />
-            {children}
+            <ApprovalGuard>{children}</ApprovalGuard>
           </AuthProvider>
         </ThemeProvider>
       </body>
