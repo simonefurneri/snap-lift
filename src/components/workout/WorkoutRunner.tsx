@@ -430,41 +430,41 @@ export function WorkoutRunner({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#09090b] text-slate-900 dark:text-zinc-100 flex flex-col justify-between">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#09090b] text-slate-900 dark:text-zinc-100 flex flex-col justify-between overflow-x-hidden max-w-full">
       {/* 1. TOP APP BAR */}
-      <header className="sticky top-0 z-40 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border-b border-slate-200 dark:border-zinc-800 px-4 pt-safe pb-2.5 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-40 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border-b border-slate-200 dark:border-zinc-800 px-3 sm:px-4 pt-safe pb-2.5 flex items-center justify-between gap-2 max-w-full overflow-hidden">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           <button
             type="button"
             onClick={() => setIsCancelConfirmOpen(true)}
-            className="p-2 rounded-xl text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+            className="p-1.5 sm:p-2 rounded-xl text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
             title="Esci o annulla allenamento"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <div>
-            <span className="block text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+          <div className="min-w-0">
+            <span className="block text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 truncate">
               Allenamento in corso
             </span>
-            <h1 className="text-sm sm:text-base font-extrabold truncate max-w-[140px] sm:max-w-xs text-zinc-900 dark:text-zinc-100">
+            <h1 className="text-xs sm:text-base font-extrabold truncate text-zinc-900 dark:text-zinc-100">
               {initialDay.name} {initialPlan ? `— ${initialPlan.name}` : ''}
             </h1>
           </div>
         </div>
 
         {/* Sync status, Stopwatch & Finish Button */}
-        <div className="flex items-center gap-2 sm:gap-2.5">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           <SyncIndicator showLabel={false} />
 
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-zinc-800/80 text-zinc-900 dark:text-zinc-100 font-mono text-xs font-bold border border-slate-200/60 dark:border-zinc-700/60">
-            <Clock className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
+          <div className="flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-xl bg-slate-100 dark:bg-zinc-800/80 text-zinc-900 dark:text-zinc-100 font-mono text-xs font-bold border border-slate-200/60 dark:border-zinc-700/60 shrink-0">
+            <Clock className="w-3.5 h-3.5 text-emerald-500 animate-pulse shrink-0" />
             <span>{formatStopwatch(elapsedSeconds)}</span>
           </div>
 
           <button
             type="button"
             onClick={() => setIsFinishModalOpen(true)}
-            className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-zinc-950 font-black text-xs transition-all shadow-md shadow-emerald-500/20 cursor-pointer"
+            className="px-2.5 py-1.5 sm:px-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-zinc-950 font-black text-xs transition-all shadow-md shadow-emerald-500/20 cursor-pointer shrink-0"
           >
             Termina
           </button>
