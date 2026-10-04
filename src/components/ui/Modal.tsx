@@ -84,7 +84,7 @@ export function Modal({
             exit={shouldReduceMotion ? { opacity: 0 } : { y: '100%', opacity: 0 }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
             className={cn(
-              'relative z-10 w-full bg-white dark:bg-zinc-900 border-t sm:border border-zinc-200 dark:border-zinc-800 rounded-t-[28px] sm:rounded-2xl shadow-2xl overflow-hidden max-h-[90dvh] flex flex-col',
+              'relative z-10 w-full bg-white dark:bg-zinc-900 border-t sm:border border-zinc-200 dark:border-zinc-800 rounded-t-[28px] sm:rounded-2xl shadow-2xl overflow-hidden max-h-[90dvh] flex flex-col pb-safe sm:pb-0',
               maxWidthClasses[maxWidth],
               className
             )}

@@ -57,7 +57,7 @@ export function UpdateNotification() {
   }
 
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-md w-[calc(100%-2rem)] p-3 rounded-2xl bg-zinc-900/95 dark:bg-zinc-800/95 text-white border border-emerald-500/40 shadow-2xl backdrop-blur-md flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-4 duration-300">
+    <div className="fixed top-[calc(1rem+env(safe-area-inset-top,0px))] left-1/2 -translate-x-1/2 z-50 max-w-md w-[calc(100%-2rem)] p-3 rounded-2xl bg-zinc-900/95 dark:bg-zinc-800/95 text-white border border-emerald-500/40 shadow-2xl backdrop-blur-md flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-4 duration-300">
       <div className="flex items-center gap-2 min-w-0">
         <div className="w-8 h-8 rounded-xl bg-emerald-500 text-zinc-950 flex items-center justify-center font-bold shrink-0">
           <Sparkles className="w-4 h-4" />

@@ -168,7 +168,7 @@ export function AppLayout({ children, onOpenNewPlan }: AppLayoutProps) {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 pb-20 md:pb-8">
         {/* Mobile Header */}
-        <header className="md:hidden sticky top-0 z-30 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-slate-200 dark:border-zinc-800 px-4 py-3 flex items-center justify-between">
+        <header className="md:hidden sticky top-0 z-30 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-slate-200 dark:border-zinc-800 px-4 pt-safe pb-3 flex items-center justify-between">
           <Link href="/plans" className="flex items-center gap-2 shrink-0">
             <div className="w-8 h-8 rounded-xl bg-emerald-500 text-zinc-950 flex items-center justify-center font-black shadow-xs">
               <Dumbbell className="w-4 h-4" />

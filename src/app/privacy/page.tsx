@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#09090b] text-slate-900 dark:text-zinc-100 p-4 sm:p-8">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#09090b] text-slate-900 dark:text-zinc-100 p-4 sm:p-8 pt-safe pb-safe">
       <div className="max-w-3xl mx-auto flex flex-col gap-6">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-zinc-800">

@@ -589,7 +589,7 @@ export function ImportReviewEditor({
       </div>
 
       {/* 4. Docked Bottom Actions: Save Plan & Cancel */}
-      <div className="px-4 py-3 sm:px-5 sm:py-3.5 border-t border-slate-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md flex flex-col sm:flex-row-reverse items-stretch sm:items-center sm:justify-start gap-2 sm:gap-3 shrink-0">
+      <div className="px-4 pt-3 pb-safe sm:px-5 sm:py-3.5 border-t border-slate-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md flex flex-col sm:flex-row-reverse items-stretch sm:items-center sm:justify-start gap-2 sm:gap-3 shrink-0">
         <Button
           variant="primary"
           size="md"

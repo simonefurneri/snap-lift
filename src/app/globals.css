@@ -94,6 +94,22 @@ body {
   padding-right: env(safe-area-inset-right, 0px);
 }
 
+.mt-safe {
+  margin-top: env(safe-area-inset-top, 0px);
+}
+
+.mb-safe {
+  margin-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.top-safe {
+  top: env(safe-area-inset-top, 0px);
+}
+
+.bottom-safe {
+  bottom: env(safe-area-inset-bottom, 0px);
+}
+
 .min-h-screen-safe {
   min-height: 100dvh;
   min-height: -webkit-fill-available;

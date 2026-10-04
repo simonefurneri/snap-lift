@@ -432,7 +432,7 @@ export function WorkoutRunner({
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#09090b] text-slate-900 dark:text-zinc-100 flex flex-col justify-between">
       {/* 1. TOP APP BAR */}
-      <header className="sticky top-0 z-40 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border-b border-slate-200 dark:border-zinc-800 px-4 py-2.5 flex items-center justify-between">
+      <header className="sticky top-0 z-40 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border-b border-slate-200 dark:border-zinc-800 px-4 pt-safe pb-2.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -768,7 +768,7 @@ export function WorkoutRunner({
       </main>
 
       {/* 5. BOTTOM NAVIGATION BAR (Previous / Next Exercise Stepper) */}
-      <footer className="sticky bottom-0 z-40 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-zinc-800 px-3 sm:px-4 py-3">
+      <footer className="sticky bottom-0 z-40 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-zinc-800 px-3 sm:px-4 pt-3 pb-safe">
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-2 sm:gap-3">
           <button
             type="button"

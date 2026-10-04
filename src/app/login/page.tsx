@@ -45,18 +45,17 @@ export default function LoginPage() {
       const { error: googleError } = await signInWithGoogle();
       if (googleError) {
         setError(googleError);
-      } else {
-        router.push('/plans');
+        setGoogleLoading(false);
       }
+      // On success, window.location.href navigates directly to Google OAuth
     } catch {
       setError('Errore durante l\'accesso con Google.');
-    } finally {
       setGoogleLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-slate-50 dark:bg-[#09090b] text-slate-900 dark:text-zinc-100 p-4 sm:p-6">
+    <div className="min-h-screen flex flex-col justify-between bg-slate-50 dark:bg-[#09090b] text-slate-900 dark:text-zinc-100 p-4 sm:p-6 pt-safe pb-safe">
       {/* Top Header */}
       <header className="w-full max-w-7xl mx-auto flex justify-between items-center px-2 sm:px-6 py-2 sm:py-4">
         <div className="flex items-center gap-2.5 shrink-0">
