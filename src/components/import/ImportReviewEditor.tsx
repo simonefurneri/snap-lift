@@ -528,6 +528,19 @@ export function ImportReviewEditor({
               className="w-full min-w-0 font-black text-base sm:text-xl text-zinc-900 dark:text-zinc-100 px-3 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
             />
           </div>
+
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block mb-1">
+              Note o Obiettivi (opzionale)
+            </label>
+            <textarea
+              value={plan.notes || ''}
+              onChange={(e) => setPlan({ ...plan, notes: e.target.value })}
+              placeholder="Note generali, obiettivi o indicazioni sulla scheda..."
+              rows={2}
+              className="w-full min-w-0 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 px-3 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 resize-none"
+            />
+          </div>
         </div>
 
         {/* 2. Days Tabs Manager with DND */}
