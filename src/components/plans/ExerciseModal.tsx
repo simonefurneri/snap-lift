@@ -151,6 +151,8 @@ export function ExerciseModal({
               </label>
               <input
                 type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 min="1"
                 max="50"
                 value={sets}
@@ -165,6 +167,8 @@ export function ExerciseModal({
               </label>
               <input
                 type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 min="0"
                 max="200"
                 value={repsMin}
@@ -183,6 +187,8 @@ export function ExerciseModal({
               </label>
               <input
                 type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 min={repsMin}
                 max="200"
                 value={repsMax}

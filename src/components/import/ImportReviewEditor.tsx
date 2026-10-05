@@ -223,6 +223,8 @@ function SortableExerciseRow({
               </label>
               <input
                 type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 min="1"
                 placeholder="es. 3"
                 value={exercise.sets !== null && exercise.sets !== undefined ? exercise.sets : ''}
@@ -239,6 +241,8 @@ function SortableExerciseRow({
               </label>
               <input
                 type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 min="0"
                 placeholder="es. 8"
                 value={
@@ -259,6 +263,8 @@ function SortableExerciseRow({
               </label>
               <input
                 type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 min="0"
                 placeholder="es. 12"
                 value={
@@ -279,6 +285,8 @@ function SortableExerciseRow({
               </label>
               <input
                 type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 min="0"
                 step="15"
                 placeholder="es. 90"

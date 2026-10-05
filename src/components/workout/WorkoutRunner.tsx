@@ -718,6 +718,7 @@ export function WorkoutRunner({
                     <div className="col-span-5 sm:col-span-3 relative">
                       <input
                         type="number"
+                        inputMode="decimal"
                         step="0.25"
                         min="0"
                         placeholder={suggestedPlaceholder || '0'}
@@ -745,6 +746,8 @@ export function WorkoutRunner({
                     <div className="col-span-3 sm:col-span-2">
                       <input
                         type="number"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         step="1"
                         min="0"
                         placeholder={currentExercise.reps_max.toString()}
