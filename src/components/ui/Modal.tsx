@@ -41,7 +41,7 @@ export function Modal({
       const timer = setTimeout(() => {
         setIsRendered(false);
         setIsClosing(false);
-      }, 240);
+      }, 280);
       return () => clearTimeout(timer);
     }
   }, [isOpen, isRendered]);

@@ -175,22 +175,22 @@ body {
 }
 
 .animate-sheet-backdrop-enter {
-  animation: sheetBackdropEnter 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: sheetBackdropEnter 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .animate-sheet-backdrop-exit {
-  animation: sheetBackdropExit 0.22s cubic-bezier(0.4, 0, 1, 1) both;
+  animation: sheetBackdropExit 0.26s ease-out both;
 }
 
 .animate-sheet-enter {
-  animation: sheetSlideUp 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: sheetSlideUp 0.40s cubic-bezier(0.22, 1, 0.36, 1) both;
   will-change: transform;
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
 }
 
 .animate-sheet-exit {
-  animation: sheetSlideDown 0.24s cubic-bezier(0.4, 0, 1, 1) both;
+  animation: sheetSlideDown 0.28s cubic-bezier(0.32, 0.72, 0, 1) both;
   will-change: transform;
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
@@ -198,10 +198,10 @@ body {
 
 @media (min-width: 640px) {
   .animate-sheet-enter {
-    animation: modalDesktopEnter 0.26s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: modalDesktopEnter 0.30s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
   .animate-sheet-exit {
-    animation: modalDesktopExit 0.20s cubic-bezier(0.4, 0, 1, 1) both;
+    animation: modalDesktopExit 0.22s ease-in both;
   }
 }
 
