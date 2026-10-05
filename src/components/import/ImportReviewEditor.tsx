@@ -223,15 +223,15 @@ function SortableExerciseRow({
                 Serie
               </label>
               <input
-                type="number"
+                type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                min="1"
                 placeholder="es. 3"
                 value={exercise.sets !== null && exercise.sets !== undefined ? exercise.sets : ''}
-                onChange={(e) =>
-                  onUpdate({ sets: e.target.value ? parseInt(e.target.value, 10) : null })
-                }
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, '');
+                  onUpdate({ sets: val ? parseInt(val, 10) : null });
+                }}
                 className="w-full min-w-0 min-h-[38px] px-2.5 py-1.5 text-xs font-bold rounded-xl bg-slate-50 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
               />
             </div>
@@ -241,19 +241,19 @@ function SortableExerciseRow({
                 Reps Min
               </label>
               <input
-                type="number"
+                type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                min="0"
                 placeholder="es. 8"
                 value={
                   exercise.reps_min !== null && exercise.reps_min !== undefined
                     ? exercise.reps_min
                     : ''
                 }
-                onChange={(e) =>
-                  onUpdate({ reps_min: e.target.value ? parseInt(e.target.value, 10) : null })
-                }
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, '');
+                  onUpdate({ reps_min: val ? parseInt(val, 10) : null });
+                }}
                 className="w-full min-w-0 min-h-[38px] px-2.5 py-1.5 text-xs font-bold rounded-xl bg-slate-50 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
               />
             </div>
@@ -263,19 +263,19 @@ function SortableExerciseRow({
                 Reps Max
               </label>
               <input
-                type="number"
+                type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                min="0"
                 placeholder="es. 12"
                 value={
                   exercise.reps_max !== null && exercise.reps_max !== undefined
                     ? exercise.reps_max
                     : ''
                 }
-                onChange={(e) =>
-                  onUpdate({ reps_max: e.target.value ? parseInt(e.target.value, 10) : null })
-                }
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, '');
+                  onUpdate({ reps_max: val ? parseInt(val, 10) : null });
+                }}
                 className="w-full min-w-0 min-h-[38px] px-2.5 py-1.5 text-xs font-bold rounded-xl bg-slate-50 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
               />
             </div>
@@ -285,20 +285,19 @@ function SortableExerciseRow({
                 Recupero (s)
               </label>
               <input
-                type="number"
+                type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                min="0"
-                step="15"
                 placeholder="es. 90"
                 value={
                   exercise.rest_seconds !== null && exercise.rest_seconds !== undefined
                     ? exercise.rest_seconds
                     : ''
                 }
-                onChange={(e) =>
-                  onUpdate({ rest_seconds: e.target.value ? parseInt(e.target.value, 10) : null })
-                }
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, '');
+                  onUpdate({ rest_seconds: val ? parseInt(val, 10) : null });
+                }}
                 className="w-full min-w-0 min-h-[38px] px-2.5 py-1.5 text-xs font-bold rounded-xl bg-slate-50 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
               />
             </div>
