@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import React, { useEffect, useState, useRef } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 
@@ -28,30 +27,68 @@ export function Modal({
   contentClassName,
   className,
 }: ModalProps) {
-  const shouldReduceMotion = useReducedMotion();
+  const [isRendered, setIsRendered] = useState(isOpen);
+  const [isClosing, setIsClosing] = useState(false);
+  const touchStartY = useRef<number | null>(null);
+  const touchCurrentY = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setIsRendered(true);
+      setIsClosing(false);
+    } else if (isRendered) {
+      setIsClosing(true);
+      const timer = setTimeout(() => {
+        setIsRendered(false);
+        setIsClosing(false);
+      }, 240);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, isRendered]);
 
   // Close on Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
+      if (e.key === 'Escape' && isRendered && !isClosing) {
         onClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isRendered, isClosing, onClose]);
 
   // Lock body scroll when open
   useEffect(() => {
-    if (isOpen) {
+    if (isRendered) {
+      const originalOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
     }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [isOpen]);
+  }, [isRendered]);
+
+  // Touch drag-to-dismiss handlers on grab bar / header
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchCurrentY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartY.current !== null && touchCurrentY.current !== null) {
+      const deltaY = touchCurrentY.current - touchStartY.current;
+      if (deltaY > 60) {
+        onClose();
+      }
+    }
+    touchStartY.current = null;
+    touchCurrentY.current = null;
+  };
+
+  if (!isRendered) return null;
 
   const maxWidthClasses = {
     sm: 'sm:max-w-sm',
@@ -63,81 +100,73 @@ export function Modal({
   };
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/60"
-            aria-hidden="true"
-          />
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        className={cn(
+          'fixed inset-0 bg-black/60',
+          isClosing ? 'animate-sheet-backdrop-exit' : 'animate-sheet-backdrop-enter'
+        )}
+        aria-hidden="true"
+      />
 
-          {/* Modal / Bottom Sheet */}
-          <motion.div
-            initial={shouldReduceMotion ? { opacity: 0 } : { y: '100%' }}
-            animate={shouldReduceMotion ? { opacity: 1 } : { y: 0 }}
-            exit={shouldReduceMotion ? { opacity: 0 } : { y: '100%' }}
-            transition={
-              shouldReduceMotion
-                ? { duration: 0.15 }
-                : {
-                    duration: 0.28,
-                    ease: [0.32, 0.72, 0, 1], // Apple iOS native sheet cubic-bezier
-                  }
-            }
-            style={{
-              willChange: 'transform',
-              WebkitBackfaceVisibility: 'hidden',
-              WebkitPerspective: 1000,
-            }}
-            className={cn(
-              'relative z-10 w-full bg-white dark:bg-zinc-900 border-t sm:border border-zinc-200 dark:border-zinc-800 rounded-t-[28px] sm:rounded-2xl shadow-2xl overflow-hidden max-h-[90dvh] flex flex-col pb-safe sm:pb-0 transform-gpu',
-              maxWidthClasses[maxWidth],
-              className
-            )}
-          >
-            {/* Mobile Drag/Grab Bar */}
-            <div className="sm:hidden flex justify-center pt-3 pb-1">
-              <div className="w-12 h-1.5 rounded-full bg-zinc-300 dark:bg-zinc-700" />
-            </div>
-
-            {/* Header */}
-            {(title || showCloseButton) && (
-              <div className="flex items-center justify-between px-5 pt-3 pb-3 sm:py-4 border-b border-zinc-100 dark:border-zinc-800/80">
-                <div>
-                  {title && (
-                    <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                      {title}
-                    </h3>
-                  )}
-                  {description && (
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                      {description}
-                    </p>
-                  )}
-                </div>
-                {showCloseButton && (
-                  <button
-                    onClick={onClose}
-                    className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                    aria-label="Chiudi"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Content body */}
-            <div className="p-4 sm:p-5 overflow-y-auto overflow-x-hidden flex-1">{children}</div>
-          </motion.div>
+      {/* Modal / Bottom Sheet */}
+      <div
+        className={cn(
+          'relative z-10 w-full bg-white dark:bg-zinc-900 border-t sm:border border-zinc-200 dark:border-zinc-800 rounded-t-[28px] sm:rounded-2xl shadow-2xl overflow-hidden max-h-[90dvh] flex flex-col pb-safe sm:pb-0',
+          isClosing ? 'animate-sheet-exit' : 'animate-sheet-enter',
+          maxWidthClasses[maxWidth],
+          className
+        )}
+      >
+        {/* Mobile Drag/Grab Bar */}
+        <div
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          className="sm:hidden flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing touch-none select-none"
+        >
+          <div className="w-12 h-1.5 rounded-full bg-zinc-300 dark:bg-zinc-700" />
         </div>
-      )}
-    </AnimatePresence>
+
+        {/* Header */}
+        {(title || showCloseButton) && (
+          <div
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            className="flex items-center justify-between px-5 pt-3 pb-3 sm:py-4 border-b border-zinc-100 dark:border-zinc-800/80 select-none"
+          >
+            <div>
+              {title && (
+                <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+                  {title}
+                </h3>
+              )}
+              {description && (
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                  {description}
+                </p>
+              )}
+            </div>
+            {showCloseButton && (
+              <button
+                onClick={onClose}
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                aria-label="Chiudi"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Content body */}
+        <div className={cn('p-4 sm:p-5 overflow-y-auto overflow-x-hidden flex-1', contentClassName)}>
+          {children}
+        </div>
+      </div>
+    </div>
   );
 }
