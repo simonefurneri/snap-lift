@@ -1,5 +1,5 @@
 // Auto-generated during build. Do not edit directly.
-const CACHE_VERSION = 'snaplift-build-1791236058302';
+const CACHE_VERSION = 'snaplift-build-1791236755742';
 const STATIC_CACHE = `snaplift-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `snaplift-dynamic-${CACHE_VERSION}`;
 
@@ -24,7 +24,6 @@ const AUTH_ROUTES = [
 
 // 1. Install Event: Pre-cache app shell and offline page
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
   event.waitUntil(
     caches
       .open(STATIC_CACHE)

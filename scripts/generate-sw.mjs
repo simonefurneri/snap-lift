@@ -38,7 +38,6 @@ const AUTH_ROUTES = [
 
 // 1. Install Event: Pre-cache app shell and offline page
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
   event.waitUntil(
     caches
       .open(STATIC_CACHE)

@@ -1,18 +1,49 @@
 import { NextRequest, NextResponse, after } from 'next/server';
-import { scheduleTimerPush, dispatchScheduledPush } from '@/lib/server/pushScheduler';
+import {
+  scheduleTimerPush,
+  continueChainedSchedule,
+  dispatchScheduledPush,
+  isTimerCancelled,
+  isScheduleActive,
+} from '@/lib/server/pushScheduler';
 
 export const maxDuration = 60; // Keep Vercel serverless function execution budget up to 60s
+
+function getBaseUrl(req: NextRequest): string {
+  const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
+  const proto = req.headers.get('x-forwarded-proto') || 'https';
+  if (host) {
+    return `${proto}://${host}`;
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  return process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+}
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { subscription, delaySeconds, title, body: messageBody, timerId, exerciseName } = body;
+    const {
+      subscription,
+      delaySeconds,
+      title,
+      body: messageBody,
+      timerId,
+      exerciseName,
+      scheduleId: incomingScheduleId,
+      isChained,
+    } = body;
 
     if (!subscription || typeof delaySeconds !== 'number' || !timerId) {
       return NextResponse.json(
         { error: 'Parametri mancanti (subscription, delaySeconds, timerId)' },
         { status: 400 }
       );
+    }
+
+    if (isTimerCancelled(timerId)) {
+      return NextResponse.json({ skipped: true, reason: 'cancelled' });
     }
 
     const payload = {
@@ -26,18 +57,67 @@ export async function POST(req: NextRequest) {
       tag: 'rest-timer',
     };
 
-    const { scheduleId, delayMs } = scheduleTimerPush(timerId, delaySeconds, subscription, payload);
+    let scheduleId = incomingScheduleId;
+    let delayMs = Math.max(500, Math.round(delaySeconds * 1000));
 
-    // For Vercel Serverless: use Next.js native after() to prevent Vercel from freezing the container.
-    // dispatchScheduledPush is 100% idempotent: exactly ONE notification will ever be sent!
+    if (isChained && incomingScheduleId) {
+      const continuation = continueChainedSchedule(
+        incomingScheduleId,
+        timerId,
+        delaySeconds,
+        subscription,
+        payload
+      );
+      if (!continuation.valid) {
+        return NextResponse.json({ skipped: true, reason: 'cancelled_or_superseded' });
+      }
+      delayMs = continuation.delayMs;
+    } else {
+      const res = scheduleTimerPush(timerId, delaySeconds, subscription, payload);
+      scheduleId = res.scheduleId;
+      delayMs = res.delayMs;
+    }
+
+    // Keep Next.js / Vercel execution context active.
+    // Chunking ensures we never exceed Vercel's 60s limit while supporting 90s, 120s, etc.!
+    const CHUNK_LIMIT_SECONDS = 50;
+
     after(async () => {
-      if (delaySeconds <= 58) {
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
-        try {
+      try {
+        if (delaySeconds <= CHUNK_LIMIT_SECONDS) {
+          // Direct wait and dispatch within the current serverless budget
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
           await dispatchScheduledPush(scheduleId);
-        } catch (err: any) {
-          console.error('[after/push] Error dispatching scheduled push:', err);
+        } else {
+          // Timer exceeds single invocation budget: wait 50s then chain the remaining duration
+          await new Promise((resolve) => setTimeout(resolve, CHUNK_LIMIT_SECONDS * 1000));
+
+          // Check if cancelled or superseded during the 50s wait
+          if (isTimerCancelled(timerId) || !isScheduleActive(scheduleId)) {
+            return;
+          }
+
+          const remainingSeconds = delaySeconds - CHUNK_LIMIT_SECONDS;
+          const baseUrl = getBaseUrl(req);
+
+          // Invoke next chunk to continue countdown seamlessly
+          await fetch(`${baseUrl}/api/push/schedule`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              subscription,
+              delaySeconds: remainingSeconds,
+              title,
+              body: messageBody,
+              timerId,
+              exerciseName,
+              scheduleId,
+              isChained: true,
+            }),
+          });
         }
+      } catch (err: any) {
+        console.error('[after/push] Error in push scheduler execution:', err);
       }
     });
 

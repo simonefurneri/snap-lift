@@ -83,13 +83,6 @@ export function scheduleTimerPush(
     isCancelled: false,
   };
 
-  // Set a fallback NodeJS.Timeout for persistent environments or delays > 60s
-  item.timeoutId = setTimeout(() => {
-    dispatchScheduledPush(scheduleId).catch((err) => {
-      console.error('[pushScheduler] Timeout dispatch error:', err);
-    });
-  }, delayMs);
-
   activeSchedules.set(scheduleId, item);
   latestScheduleByTimer.set(timerId, scheduleId);
   latestScheduleByEndpoint.set(endpoint, scheduleId);
@@ -129,9 +122,58 @@ export function scheduleTimerPush(
 }
 
 /**
+ * Continues an existing chained schedule across serverless invocation chunks.
+ */
+export function continueChainedSchedule(
+  scheduleId: string,
+  timerId: string,
+  remainingSeconds: number,
+  subscription: PushSubscription,
+  payload: PushNotificationPayload
+): { valid: boolean; delayMs: number } {
+  if (isTimerCancelled(timerId)) {
+    return { valid: false, delayMs: 0 };
+  }
+
+  const latestSchedule = latestScheduleByTimer.get(timerId);
+  if (latestSchedule && latestSchedule !== scheduleId) {
+    return { valid: false, delayMs: 0 };
+  }
+
+  const endpoint = subscription.endpoint;
+  const latestEndpointSchedule = latestScheduleByEndpoint.get(endpoint);
+  if (latestEndpointSchedule && latestEndpointSchedule !== scheduleId) {
+    return { valid: false, delayMs: 0 };
+  }
+
+  const delayMs = Math.max(500, Math.round(remainingSeconds * 1000));
+
+  let item = activeSchedules.get(scheduleId);
+  if (!item) {
+    item = {
+      scheduleId,
+      timerId,
+      endpoint,
+      subscription,
+      payload,
+      scheduledTime: Date.now() + delayMs,
+      isDispatched: false,
+      isCancelled: false,
+    };
+    activeSchedules.set(scheduleId, item);
+    latestScheduleByTimer.set(timerId, scheduleId);
+    latestScheduleByEndpoint.set(endpoint, scheduleId);
+  } else {
+    item.scheduledTime = Date.now() + delayMs;
+  }
+
+  return { valid: true, delayMs };
+}
+
+/**
  * Dispatches the push notification atomically and idempotently.
  * Guarantees that EXACTLY ONE push is sent for this schedule, even if invoked
- * concurrently by Next.js after() and NodeJS setTimeout.
+ * concurrently by multiple handlers.
  */
 export async function dispatchScheduledPush(scheduleId: string): Promise<boolean> {
   const item = activeSchedules.get(scheduleId);
@@ -143,10 +185,20 @@ export async function dispatchScheduledPush(scheduleId: string): Promise<boolean
   if (
     item.isCancelled ||
     item.isDispatched ||
-    cancelledTimers.has(item.timerId) ||
-    latestScheduleByTimer.get(item.timerId) !== scheduleId ||
-    latestScheduleByEndpoint.get(item.endpoint) !== scheduleId
+    cancelledTimers.has(item.timerId)
   ) {
+    cleanupSchedule(scheduleId);
+    return false;
+  }
+
+  const currentForTimer = latestScheduleByTimer.get(item.timerId);
+  if (currentForTimer && currentForTimer !== scheduleId) {
+    cleanupSchedule(scheduleId);
+    return false;
+  }
+
+  const currentForEndpoint = latestScheduleByEndpoint.get(item.endpoint);
+  if (currentForEndpoint && currentForEndpoint !== scheduleId) {
     cleanupSchedule(scheduleId);
     return false;
   }
