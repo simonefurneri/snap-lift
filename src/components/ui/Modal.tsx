@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 
@@ -14,6 +15,7 @@ export interface ModalProps {
   showCloseButton?: boolean;
   contentClassName?: string;
   className?: string;
+  zIndex?: string;
 }
 
 export function Modal({
@@ -26,11 +28,17 @@ export function Modal({
   showCloseButton = true,
   contentClassName,
   className,
+  zIndex = 'z-50',
 }: ModalProps) {
   const [isRendered, setIsRendered] = useState(isOpen);
   const [isClosing, setIsClosing] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const touchStartY = useRef<number | null>(null);
   const touchCurrentY = useRef<number | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -88,7 +96,7 @@ export function Modal({
     touchCurrentY.current = null;
   };
 
-  if (!isRendered) return null;
+  if (!isRendered || !mounted) return null;
 
   const maxWidthClasses = {
     sm: 'sm:max-w-sm',
@@ -99,8 +107,8 @@ export function Modal({
     full: 'sm:max-w-4xl',
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+  const modalMarkup = (
+    <div className={cn("fixed inset-0 flex items-end sm:items-center justify-center p-0 sm:p-4", zIndex || 'z-50')}>
       {/* Backdrop */}
       <div
         onClick={onClose}
@@ -169,4 +177,6 @@ export function Modal({
       </div>
     </div>
   );
+
+  return createPortal(modalMarkup, document.body);
 }

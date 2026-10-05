@@ -29,7 +29,13 @@ export function ConfirmDialog({
   isLoading = false,
 }: ConfirmDialogProps) {
   return (
-    <Modal isOpen={isOpen} onClose={onClose} maxWidth="sm" showCloseButton={false}>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      maxWidth="sm"
+      showCloseButton={false}
+      zIndex="z-[70]"
+    >
       <div className="flex flex-col items-center text-center py-2">
         <div
           className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${
