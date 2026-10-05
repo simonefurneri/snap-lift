@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { workoutService, PreviousExerciseHistory } from '@/lib/services/workoutService';
@@ -89,6 +89,7 @@ export function WorkoutRunner({
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const stopwatchRef = useRef<NodeJS.Timeout | null>(null);
   const exercisesCarouselRef = useRef<HTMLDivElement>(null);
+  const syncDebounceTimersRef = useRef<Record<string, NodeJS.Timeout>>({});
 
   const weightUnit = profile?.weight_unit || 'kg';
   const progressionPct = profile?.progression_pct || 2.5;
@@ -263,9 +264,42 @@ export function WorkoutRunner({
     return `${mins < 10 ? '0' : ''}${mins}:${s < 10 ? '0' : ''}${s}`;
   };
 
+  // Auto-sync a completed set row to IndexedDB & Supabase
+  const syncCompletedSetLog = useCallback(
+    async (
+      exercise: Exercise,
+      setNumber: number,
+      logId: string,
+      weightStr: string,
+      repsStr: string
+    ) => {
+      const weightNum = parseFloat(weightStr?.replace(',', '.')) || 0;
+      const repsNum = parseInt(repsStr, 10) || exercise.reps_max || 0;
+
+      await syncEngine.enqueueSetLog({
+        id: logId,
+        user_id: session.user_id,
+        session_id: session.id,
+        exercise_id: exercise.id || null,
+        exercise_name: exercise.name,
+        set_number: setNumber,
+        weight: weightNum,
+        reps: repsNum,
+        is_completed: true,
+      });
+
+      offlineSync.saveWorkoutLocally(session.id, {
+        sessionId: session.id,
+        updatedAt: new Date().toISOString(),
+        setLogs: {},
+      });
+    },
+    [session.id, session.user_id]
+  );
+
   // Update a set row's value
   const handleUpdateSet = (index: number, field: 'weight' | 'reps', value: string) => {
-    if (!currentKey) return;
+    if (!currentKey || !currentExercise) return;
     let sanitizedValue = value;
     if (field === 'weight') {
       // Replace comma with dot to support Italian/European keyboard separator
@@ -278,28 +312,86 @@ export function WorkoutRunner({
       sanitizedValue = value.replace(/[^0-9]/g, '');
     }
 
+    const currentTargetSet = currentSets[index];
+    const isCompleted = currentTargetSet?.isCompleted;
+    const logId = currentTargetSet?.savedLogId || crypto.randomUUID();
+
     setExerciseSetsMap((prev) => {
       const list = [...(prev[currentKey] || [])];
       if (list[index]) {
-        list[index] = { ...list[index], [field]: sanitizedValue };
+        list[index] = {
+          ...list[index],
+          [field]: sanitizedValue,
+          savedLogId: logId,
+        };
       }
       return { ...prev, [currentKey]: list };
     });
+
+    // If this set is ALREADY confirmed with the checkmark/pallino, auto-sync the new value
+    if (isCompleted && currentTargetSet) {
+      const timerKey = `${currentKey}-${index}`;
+      if (syncDebounceTimersRef.current[timerKey]) {
+        clearTimeout(syncDebounceTimersRef.current[timerKey]);
+      }
+
+      const updatedWeight = field === 'weight' ? sanitizedValue : currentTargetSet.weight;
+      const updatedReps = field === 'reps' ? sanitizedValue : currentTargetSet.reps;
+
+      syncDebounceTimersRef.current[timerKey] = setTimeout(() => {
+        delete syncDebounceTimersRef.current[timerKey];
+        syncCompletedSetLog(
+          currentExercise,
+          currentTargetSet.setNumber,
+          logId,
+          updatedWeight,
+          updatedReps
+        );
+      }, 400);
+    }
+  };
+
+  // Immediate sync on input blur if the set is already completed
+  const handleBlurSet = (index: number) => {
+    if (!currentKey || !currentExercise) return;
+    const setRow = currentSets[index];
+    if (!setRow || !setRow.isCompleted) return;
+
+    const timerKey = `${currentKey}-${index}`;
+    if (syncDebounceTimersRef.current[timerKey]) {
+      clearTimeout(syncDebounceTimersRef.current[timerKey]);
+      delete syncDebounceTimersRef.current[timerKey];
+    }
+
+    const logId = setRow.savedLogId || crypto.randomUUID();
+    syncCompletedSetLog(currentExercise, setRow.setNumber, logId, setRow.weight, setRow.reps);
   };
 
   // Quick fill suggested load
   const handleApplySuggestedWeight = (index?: number) => {
-    if (!progressionResult.suggestedWeight || !currentKey) return;
+    if (!progressionResult.suggestedWeight || !currentKey || !currentExercise) return;
     const val = progressionResult.suggestedWeight.toString();
 
     setExerciseSetsMap((prev) => {
       const list = [...(prev[currentKey] || [])];
       if (typeof index === 'number') {
-        if (list[index]) list[index] = { ...list[index], weight: val };
+        if (list[index]) {
+          const logId = list[index].savedLogId || crypto.randomUUID();
+          list[index] = { ...list[index], weight: val, savedLogId: logId };
+          if (list[index].isCompleted) {
+            syncCompletedSetLog(currentExercise, list[index].setNumber, logId, val, list[index].reps);
+          }
+        }
       } else {
         // Fill all empty weight rows
         list.forEach((row, i) => {
-          if (!row.weight) list[i] = { ...row, weight: val };
+          if (!row.weight) {
+            const logId = row.savedLogId || crypto.randomUUID();
+            list[i] = { ...row, weight: val, savedLogId: logId };
+            if (row.isCompleted) {
+              syncCompletedSetLog(currentExercise, row.setNumber, logId, val, row.reps);
+            }
+          }
         });
       }
       return { ...prev, [currentKey]: list };
@@ -445,6 +537,43 @@ export function WorkoutRunner({
   const handleConfirmFinishWorkout = async () => {
     setIsFinishing(true);
     try {
+      // 1. Clear any pending debounces
+      Object.values(syncDebounceTimersRef.current).forEach((t) => clearTimeout(t));
+      syncDebounceTimersRef.current = {};
+
+      // 2. Guarantee that ALL completed sets across all exercises are enqueued with their latest values
+      const syncPromises: Promise<any>[] = [];
+      exercises.forEach((ex) => {
+        const exKey = ex.name.trim();
+        const sets = exerciseSetsMap[exKey] || [];
+        sets.forEach((setRow) => {
+          if (setRow.isCompleted) {
+            const weightNum = parseFloat(setRow.weight?.replace(',', '.')) || 0;
+            const repsNum = parseInt(setRow.reps, 10) || ex.reps_max || 0;
+            const logId = setRow.savedLogId || crypto.randomUUID();
+            syncPromises.push(
+              syncEngine.enqueueSetLog({
+                id: logId,
+                user_id: session.user_id,
+                session_id: session.id,
+                exercise_id: ex.id || null,
+                exercise_name: ex.name,
+                set_number: setRow.setNumber,
+                weight: weightNum,
+                reps: repsNum,
+                is_completed: true,
+              })
+            );
+          }
+        });
+      });
+
+      await Promise.all(syncPromises);
+
+      // 3. Process the sync queue immediately to ensure Supabase receives all upserts
+      await syncEngine.processQueue();
+
+      // 4. Mark session completed and clean local active state
       await workoutService.finishSession(session.id);
       await offlineDb.deleteActiveSession(session.id);
       offlineSync.clearWorkoutLocally(session.id);
@@ -459,6 +588,9 @@ export function WorkoutRunner({
   // Cancel / Discard Workout
   const handleConfirmCancelWorkout = async () => {
     try {
+      Object.values(syncDebounceTimersRef.current).forEach((t) => clearTimeout(t));
+      syncDebounceTimersRef.current = {};
+
       await workoutService.cancelSession(session.id);
       await offlineDb.deleteActiveSession(session.id);
       offlineSync.clearWorkoutLocally(session.id);
@@ -734,6 +866,7 @@ export function WorkoutRunner({
                         placeholder={suggestedPlaceholder || '0'}
                         value={setRow.weight}
                         onChange={(e) => handleUpdateSet(index, 'weight', e.target.value)}
+                        onBlur={() => handleBlurSet(index)}
                         className={`w-full min-h-[44px] text-center font-bold text-sm sm:text-base rounded-xl border transition-all focus:outline-hidden focus:ring-2 focus:ring-emerald-500 ${
                           setRow.isCompleted
                             ? 'bg-white dark:bg-zinc-900 border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
@@ -761,6 +894,7 @@ export function WorkoutRunner({
                         placeholder={currentExercise.reps_max.toString()}
                         value={setRow.reps}
                         onChange={(e) => handleUpdateSet(index, 'reps', e.target.value)}
+                        onBlur={() => handleBlurSet(index)}
                         className={`w-full min-h-[44px] text-center font-bold text-sm sm:text-base rounded-xl border transition-all focus:outline-hidden focus:ring-2 focus:ring-emerald-500 ${
                           setRow.isCompleted
                             ? 'bg-white dark:bg-zinc-900 border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
