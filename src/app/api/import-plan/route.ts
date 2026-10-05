@@ -38,15 +38,15 @@ REGOLE DI ESTRAZIONE DEI CAMPI:
    - Estrai il titolo principale della scheda se presente (es. "Massa Ipertrofica - Mese 1", "Upper/Lower Split").
    - Se non compare un titolo esplicito, assegna un nome chiaro e coerente come "Scheda Allenamento".
 
-2. NOTE GENERALI, OBIETTIVI E INDICAZIONI DELLA SCHEDA (notes):
-   - Estrai e trascrivi TUTTO il testo generale, introduttivo o conclusivo della scheda che non appartiene a una singola riga di esercizio.
-   - Include espressamente:
-     * Indicazioni di intensità o metodologia generale (es. "Buffer ampio (RIR 2-3): Fermati sempre 2 o 3 ripetizioni prima di sentire il cedimento muscolare...", "Tutte le serie a cedimento", "RPE 8 costante").
-     * Indicazioni generali su riscaldamento, mobilità o defaticamento/cardio (es. "Riscaldamento 10 min cyclette + mobilità articolare", "15 min camminata in pendenza a fine seduta").
-     * Obiettivi, durata, frequenza o note del trainer/coach (es. "Fase di accumulo 6 settimane", "Focus pettorali e progressione carichi sui fondamentali", "Recuperi completi sui multiarticolari", "Scarico attivo alla 4ª settimana").
-     * Legenda o spiegazione delle sigle presenti nella scheda.
-   - Trascrivi queste indicazioni in modo fedele, completo e ben formattato nel campo "notes".
-   - Se non compare assolutamente alcuna nota, testo introduttivo o istruzione generale nella scheda, usa null.
+2. NOTE GENERALI, PRINCIPI CHIAVE E ISTRUZIONI DEL PIANO (notes):
+   - Cerca con la massima attenzione qualsiasi testo introduttivo, preambolo, sezione iniziale/finale della scheda, come:
+     * "I Principi Chiave di Questo Reset", "Principi Chiave", "Linee Guida", "Istruzioni", "Regole della scheda".
+     * Spiegazioni su Buffer e intensità (es. "Buffer ampio (RIR 2-3): Fermati sempre 2 o 3 ripetizioni prima di sentire il cedimento muscolare...", "Tutte le serie a cedimento", "RIR 1-2").
+     * Indicazioni su volume, durata, carichi o focus posturale (es. "Volume ridotto (2 serie effettive...)", "Durata 40-45 min...", "Zero sovraccarico sul collo...").
+     * Obiettivi, indicazioni generali su riscaldamento o raccomandazioni del coach.
+   - Trascrivi TUTTE queste note/principi nel campo "notes" formattandole in modo chiaro e leggibile con elenchi puntati o a capo.
+   - È FONDAMENTALE non scartare queste istruzioni: sono le note e gli obiettivi generali della scheda.
+   - Se non compare assolutamente alcuna nota, principio o istruzione generale nella scheda, usa null.
 
 3. STRUTTURA GIORNI E PIANO (days):
    - Riconosci le divisioni in giorni (es. "Giorno A", "Giorno B", "Push", "Pull", "Legs", "Lunedì", "Sessione 1").
@@ -221,7 +221,7 @@ export async function POST(request: Request) {
                     },
                   })),
                   {
-                    text: 'Analizza attentamente tutte le immagini fornite, estrai i giorni e per ciascun esercizio compila accuratamente tutti i parametri: nome, numero di serie (sets), ripetizioni minime (reps_min), ripetizioni massime (reps_max), tempo di recupero in secondi (rest_seconds), note tecniche (technique_notes) e uncertain.',
+                    text: 'Analizza attentamente tutte le immagini fornite. FONDAMENTALE: se nelle immagini sono presenti principi chiave (come "I Principi Chiave di Questo Reset"), linee guida, note sul buffer (es. "Buffer ampio (RIR 2-3)..."), volume, sovraccarico o istruzioni generali del programma, estraile integralmente nel campo "notes". Estrai poi il nome della scheda (plan_name), tutti i giorni (days) e per ciascun esercizio tutti i relativi parametri (nome, sets, reps_min, reps_max, rest_seconds, technique_notes, uncertain).',
                   },
                 ],
               },
@@ -233,6 +233,7 @@ export async function POST(request: Request) {
                 type: Type.OBJECT,
                 properties: {
                   plan_name: { type: Type.STRING },
+                  notes: { type: Type.STRING, nullable: true },
                   days: {
                     type: Type.ARRAY,
                     items: {
@@ -268,7 +269,7 @@ export async function POST(request: Request) {
                     },
                   },
                 },
-                required: ['plan_name', 'days'],
+                required: ['plan_name', 'notes', 'days'],
               },
             },
           });
