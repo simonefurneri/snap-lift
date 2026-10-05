@@ -37,8 +37,8 @@ export default function ProfilePage() {
 
   const [displayName, setDisplayName] = useState('');
   const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>('kg');
-  const [progressionPct, setProgressionPct] = useState(2.5);
-  const [loadStep, setLoadStep] = useState(1.25);
+  const [progressionPct, setProgressionPct] = useState('2.5');
+  const [loadStep, setLoadStep] = useState('1.25');
   const [loading, setLoading] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -53,8 +53,8 @@ export default function ProfilePage() {
     if (profile) {
       setDisplayName(profile.display_name || '');
       setWeightUnit(profile.weight_unit || 'kg');
-      setProgressionPct(profile.progression_pct || 2.5);
-      setLoadStep(profile.load_step || 1.25);
+      setProgressionPct((profile.progression_pct ?? 2.5).toString());
+      setLoadStep((profile.load_step ?? 1.25).toString());
 
       if (profile.is_admin) {
         // Fetch pending count
@@ -80,15 +80,32 @@ export default function ProfilePage() {
     await signOut();
   };
 
+  const handleLoadStepChange = (val: string) => {
+    const sanitized = val.replace(',', '.');
+    if (/^\d*\.?\d*$/.test(sanitized)) {
+      setLoadStep(sanitized);
+    }
+  };
+
+  const handleProgressionPctChange = (val: string) => {
+    const sanitized = val.replace(',', '.');
+    if (/^\d*\.?\d*$/.test(sanitized)) {
+      setProgressionPct(sanitized);
+    }
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
+      const parsedProgression = parseFloat(progressionPct.replace(',', '.')) || 2.5;
+      const parsedLoadStep = parseFloat(loadStep.replace(',', '.')) || 1.25;
+
       const { error } = await updateProfile({
         display_name: displayName.trim() || null,
         weight_unit: weightUnit,
-        progression_pct: Number(progressionPct),
-        load_step: Number(loadStep),
+        progression_pct: parsedProgression,
+        load_step: parsedLoadStep,
       });
 
       if (error) {
@@ -257,11 +274,11 @@ export default function ProfilePage() {
               <div>
                 <Input
                   label={`Passo di Arrotondamento / Minimo Carico (${weightUnit})`}
-                  type="number"
-                  step="0.25"
-                  min="0.25"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="1.25"
                   value={loadStep}
-                  onChange={(e) => setLoadStep(parseFloat(e.target.value) || 1.25)}
+                  onChange={(e) => handleLoadStepChange(e.target.value)}
                   helperText="Taglio micro-carichi per bilanciere/manubri"
                   leftIcon={<TrendingUp className="w-4 h-4" />}
                 />
@@ -270,9 +287,9 @@ export default function ProfilePage() {
                     <button
                       key={stepVal}
                       type="button"
-                      onClick={() => setLoadStep(stepVal)}
+                      onClick={() => setLoadStep(stepVal.toString())}
                       className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                        loadStep === stepVal
+                        parseFloat(loadStep.replace(',', '.')) === stepVal
                           ? 'bg-emerald-500 text-zinc-950 shadow-xs'
                           : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
                       }`}
@@ -286,12 +303,11 @@ export default function ProfilePage() {
               <div>
                 <Input
                   label="Percentuale di Progressione (2% - 5%)"
-                  type="number"
-                  step="0.5"
-                  min="1"
-                  max="15"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="2.5"
                   value={progressionPct}
-                  onChange={(e) => setProgressionPct(parseFloat(e.target.value) || 2.5)}
+                  onChange={(e) => handleProgressionPctChange(e.target.value)}
                   helperText="Incremento applicato quando completi tutte le reps al max"
                   leftIcon={<Percent className="w-4 h-4" />}
                 />
@@ -300,9 +316,9 @@ export default function ProfilePage() {
                     <button
                       key={pctVal}
                       type="button"
-                      onClick={() => setProgressionPct(pctVal)}
+                      onClick={() => setProgressionPct(pctVal.toString())}
                       className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                        progressionPct === pctVal
+                        parseFloat(progressionPct.replace(',', '.')) === pctVal
                           ? 'bg-emerald-500 text-zinc-950 shadow-xs'
                           : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
                       }`}
