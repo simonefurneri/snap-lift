@@ -416,7 +416,6 @@ export function DayManager({
             value={newDayName}
             onChange={(e) => setNewDayName(e.target.value)}
             required
-            autoFocus
           />
           <div className="flex justify-end gap-2.5 pt-3 border-t border-zinc-100 dark:border-zinc-800">
             <Button
@@ -446,7 +445,6 @@ export function DayManager({
             value={renameValue}
             onChange={(e) => setRenameValue(e.target.value)}
             required
-            autoFocus
           />
           <div className="flex justify-end gap-2.5 pt-3 border-t border-zinc-100 dark:border-zinc-800">
             <Button

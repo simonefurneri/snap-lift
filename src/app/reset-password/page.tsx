@@ -99,7 +99,6 @@ export default function ResetPasswordPage() {
               onChange={(e) => setPassword(e.target.value)}
               leftIcon={<Lock className="w-4 h-4" />}
               required
-              autoFocus
             />
 
             <Input

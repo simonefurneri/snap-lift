@@ -141,7 +141,6 @@ export function ExerciseModal({
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            autoFocus
           />
 
           {/* Sets and Reps range in a grid */}

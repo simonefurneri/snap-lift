@@ -92,7 +92,6 @@ export default function ForgotPasswordPage() {
               onChange={(e) => setEmail(e.target.value)}
               leftIcon={<Mail className="w-4 h-4" />}
               required
-              autoFocus
             />
 
             <Button

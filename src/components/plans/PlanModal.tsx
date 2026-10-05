@@ -75,7 +75,6 @@ export function PlanModal({
           value={name}
           onChange={(e) => setName(e.target.value)}
           error={error || undefined}
-          autoFocus
           required
         />
 
