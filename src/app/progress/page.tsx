@@ -155,9 +155,9 @@ export default function ProgressPage() {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="fixed top-[calc(1rem+env(safe-area-inset-top,0px))] right-4 z-50 flex items-center gap-2 px-4 py-3 bg-emerald-600 text-white rounded-2xl shadow-xl text-xs font-semibold"
+              className="fixed top-[calc(1rem+env(safe-area-inset-top,0px))] right-4 sm:right-6 left-4 sm:left-auto max-w-sm ml-auto z-50 flex items-center gap-2 px-4 py-3 bg-emerald-600/95 text-white rounded-2xl shadow-xl text-xs font-semibold backdrop-blur-md"
             >
-              <CheckCircle2 className="w-4 h-4" />
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
               <span>{toastMessage}</span>
             </motion.div>
           )}

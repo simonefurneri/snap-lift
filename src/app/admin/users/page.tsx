@@ -236,14 +236,14 @@ export default function AdminUsersPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               className={cn(
-                'fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl shadow-xl text-xs font-semibold text-white',
-                toastMessage.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'
+                'fixed top-[calc(1rem+env(safe-area-inset-top,0px))] right-4 sm:right-6 left-4 sm:left-auto max-w-sm ml-auto z-50 flex items-center gap-2 px-4 py-3 rounded-2xl shadow-xl text-xs font-semibold text-white backdrop-blur-md',
+                toastMessage.type === 'success' ? 'bg-emerald-600/95' : 'bg-red-600/95'
               )}
             >
               {toastMessage.type === 'success' ? (
-                <CheckCircle2 className="w-4 h-4" />
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
               ) : (
-                <AlertTriangle className="w-4 h-4" />
+                <AlertTriangle className="w-4 h-4 shrink-0" />
               )}
               <span>{toastMessage.text}</span>
             </motion.div>
