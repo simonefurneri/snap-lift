@@ -88,6 +88,7 @@ export function WorkoutRunner({
   // Workout duration stopwatch
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const stopwatchRef = useRef<NodeJS.Timeout | null>(null);
+  const exercisesCarouselRef = useRef<HTMLDivElement>(null);
 
   const weightUnit = profile?.weight_unit || 'kg';
   const progressionPct = profile?.progression_pct || 2.5;
@@ -95,6 +96,38 @@ export function WorkoutRunner({
 
   // Keep screen awake during workout session
   useWakeLock(true);
+
+  // Auto-scroll carousel to active exercise when currentExerciseIndex changes
+  useEffect(() => {
+    if (exercisesCarouselRef.current) {
+      const activePill = exercisesCarouselRef.current.querySelector(
+        `[data-exercise-idx="${currentExerciseIndex}"]`
+      );
+      if (activePill) {
+        activePill.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'center',
+        });
+      }
+    }
+  }, [currentExerciseIndex]);
+
+  // Mouse wheel horizontal scroll listener for desktop on exercises carousel
+  useEffect(() => {
+    const el = exercisesCarouselRef.current;
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY !== 0 && el.scrollWidth > el.clientWidth) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+      }
+    };
+
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
 
   // Save active session in IndexedDB for interrupted workout recovery
   useEffect(() => {
@@ -472,7 +505,10 @@ export function WorkoutRunner({
       </header>
 
       {/* 2. EXERCISE CAROUSEL / STEPPER TABS */}
-      <div className="bg-white/50 dark:bg-zinc-900/40 border-b border-slate-200/80 dark:border-zinc-800/80 px-4 sm:px-6 md:px-8 py-2.5 overflow-x-auto flex items-center gap-2 no-scrollbar">
+      <div
+        ref={exercisesCarouselRef}
+        className="bg-white/50 dark:bg-zinc-900/40 border-b border-slate-200/80 dark:border-zinc-800/80 px-4 sm:px-6 md:px-8 py-2.5 overflow-x-auto flex items-center gap-2 no-scrollbar scroll-smooth"
+      >
         {exercises.map((ex, idx) => {
           const isCurrent = idx === currentExerciseIndex;
           const isDone = isExerciseFullyCompleted(ex.name);
@@ -481,6 +517,7 @@ export function WorkoutRunner({
             <button
               key={ex.id}
               type="button"
+              data-exercise-idx={idx}
               onClick={() => setCurrentExerciseIndex(idx)}
               className={`shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 isCurrent
