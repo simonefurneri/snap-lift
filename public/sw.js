@@ -1,5 +1,5 @@
 // Auto-generated during build. Do not edit directly.
-const CACHE_VERSION = 'snaplift-build-1791233873489';
+const CACHE_VERSION = 'snaplift-build-1791234889112';
 const STATIC_CACHE = `snaplift-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `snaplift-dynamic-${CACHE_VERSION}`;
 

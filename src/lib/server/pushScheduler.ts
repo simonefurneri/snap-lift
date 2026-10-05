@@ -5,12 +5,14 @@ interface ScheduledItem {
   timeoutId: NodeJS.Timeout;
   scheduledTime: number;
   endpoint: string;
+  qstashMessageId?: string;
 }
 
 // Global in-memory storage across API requests in Node runtime
 const globalStore = globalThis as unknown as {
   __snaplift_push_timers?: Map<string, ScheduledItem>;
   __snaplift_endpoint_timers?: Map<string, string>;
+  __snaplift_cancelled_timers?: Set<string>;
 };
 
 if (!globalStore.__snaplift_push_timers) {
@@ -19,9 +21,13 @@ if (!globalStore.__snaplift_push_timers) {
 if (!globalStore.__snaplift_endpoint_timers) {
   globalStore.__snaplift_endpoint_timers = new Map<string, string>();
 }
+if (!globalStore.__snaplift_cancelled_timers) {
+  globalStore.__snaplift_cancelled_timers = new Set<string>();
+}
 
 const activeTimers = globalStore.__snaplift_push_timers;
 const endpointTimers = globalStore.__snaplift_endpoint_timers;
+const cancelledTimers = globalStore.__snaplift_cancelled_timers;
 
 export function scheduleTimerPush(
   timerId: string,
@@ -31,12 +37,14 @@ export function scheduleTimerPush(
 ) {
   const endpoint = subscription.endpoint;
 
-  // 1. Cancel previous timer for this exact timerId if exists
+  // 1. Remove from cancelled set if re-used
+  cancelledTimers.delete(timerId);
+
+  // 2. Cancel previous timer for this exact timerId if exists
   cancelTimerPush(timerId);
 
-  // 2. IMPORTANT: Cancel any existing timer for this same device endpoint!
+  // 3. IMPORTANT: Cancel any existing timer for this same device endpoint!
   // A device can only have ONE rest timer at any given moment.
-  // This completely eliminates ghost/duplicate timers from previous sets or remounts.
   const existingTimerIdForEndpoint = endpointTimers.get(endpoint);
   if (existingTimerIdForEndpoint && existingTimerIdForEndpoint !== timerId) {
     cancelTimerPush(existingTimerIdForEndpoint);
@@ -46,11 +54,12 @@ export function scheduleTimerPush(
 
   const timeoutId = setTimeout(async () => {
     activeTimers.delete(timerId);
-    endpointTimers.delete(endpoint);
+    if (endpointTimers.get(endpoint) === timerId) {
+      endpointTimers.delete(endpoint);
+    }
     try {
       await sendWebPush(subscription, payload);
     } catch (err: any) {
-      // 410 Gone or 404 Not Found means the subscription expired or was unsubscribed
       if (err.statusCode === 410 || err.statusCode === 404) {
         console.warn(`[pushScheduler] Subscription expired for timer ${timerId}`);
       } else {
@@ -59,19 +68,21 @@ export function scheduleTimerPush(
     }
   }, delayMs);
 
-  activeTimers.set(timerId, {
+  const item: ScheduledItem = {
     timeoutId,
     scheduledTime: Date.now() + delayMs,
     endpoint,
-  });
+  };
+  activeTimers.set(timerId, item);
   endpointTimers.set(endpoint, timerId);
 
   // If QStash is configured (for serverless environments like Vercel), schedule via QStash
   if (process.env.QSTASH_TOKEN) {
-    const rawAppUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
-    const appUrl = rawAppUrl ? rawAppUrl.replace(/\/+$/, '') : '';
+    let rawAppUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL || '';
+    if (rawAppUrl && !rawAppUrl.startsWith('http://') && !rawAppUrl.startsWith('https://')) {
+      rawAppUrl = `https://${rawAppUrl}`;
+    }
+    const appUrl = rawAppUrl.replace(/\/+$/, '');
 
     if (appUrl) {
       fetch(`https://qstash.upstash.io/v2/publish/${appUrl}/api/push/send`, {
@@ -82,8 +93,17 @@ export function scheduleTimerPush(
           'Upstash-Deduplication-Id': `${timerId}-${Math.round(delaySeconds)}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ subscription, payload }),
-      }).catch((err) => console.warn('[pushScheduler] QStash scheduling warning:', err));
+        body: JSON.stringify({ subscription, payload, timerId }),
+      })
+        .then(async (res) => {
+          if (res.ok) {
+            const data = await res.json().catch(() => ({}));
+            if (data.messageId) {
+              item.qstashMessageId = data.messageId;
+            }
+          }
+        })
+        .catch((err) => console.warn('[pushScheduler] QStash scheduling warning:', err));
     }
   }
 
@@ -93,6 +113,8 @@ export function scheduleTimerPush(
 export function cancelTimerPush(timerId: string) {
   if (!timerId) return false;
 
+  cancelledTimers.add(timerId);
+
   const existing = activeTimers.get(timerId);
   if (existing) {
     clearTimeout(existing.timeoutId);
@@ -100,8 +122,22 @@ export function cancelTimerPush(timerId: string) {
     if (existing.endpoint && endpointTimers.get(existing.endpoint) === timerId) {
       endpointTimers.delete(existing.endpoint);
     }
+
+    // Cancel in QStash if message was scheduled
+    if (existing.qstashMessageId && process.env.QSTASH_TOKEN) {
+      fetch(`https://qstash.upstash.io/v2/messages/${existing.qstashMessageId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${process.env.QSTASH_TOKEN}` },
+      }).catch(() => {});
+    }
+
     return true;
   }
 
   return false;
+}
+
+export function isTimerCancelled(timerId?: string): boolean {
+  if (!timerId) return false;
+  return cancelledTimers.has(timerId);
 }

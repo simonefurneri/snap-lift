@@ -10,9 +10,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'subscription mancante' }, { status: 400 });
     }
 
+    // Wait 4 seconds to give user time to lock their screen or switch to another app
+    await new Promise((resolve) => setTimeout(resolve, 4000));
+
     await sendWebPush(subscription, {
       title: 'SnapLift Test Notifica 🔔',
-      body: 'Le notifiche push del timer sono configurate correttamente!',
+      body: 'Se vedi questa notifica, il sistema Web Push per schermo bloccato è attivo!',
       url: '/workout',
       tag: 'test-notification',
     });

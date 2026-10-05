@@ -30,6 +30,7 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
   const targetEndTimeRef = useRef<number>(Date.now() + initialSeconds * 1000);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const timerIdRef = useRef<string>('');
+  const rescheduleDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check notification permission on mount
   useEffect(() => {
@@ -76,6 +77,10 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
 
   // Handle Close / Cancel
   const handleClose = () => {
+    if (rescheduleDebounceRef.current) {
+      clearTimeout(rescheduleDebounceRef.current);
+      rescheduleDebounceRef.current = null;
+    }
     if (timerIdRef.current) {
       cancelServerPushTimer(timerIdRef.current);
     }
@@ -133,6 +138,11 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
   }, [isOpen, isRunning, isFinished, exerciseName]);
 
   const togglePlayPause = () => {
+    if (rescheduleDebounceRef.current) {
+      clearTimeout(rescheduleDebounceRef.current);
+      rescheduleDebounceRef.current = null;
+    }
+
     if (isRunning) {
       setIsRunning(false);
       // Cancel server push while paused
@@ -169,17 +179,31 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
       closeRestTimerNotifications();
     }
 
-    // Reschedule push for updated duration
-    if (timerIdRef.current && next > 0) {
-      scheduleServerPushTimer({
-        timerId: timerIdRef.current,
-        delaySeconds: next,
-        exerciseName,
-      });
+    // Debounce the server push rescheduling (400ms) so rapid taps on +/- do NOT fire
+    // competing out-of-order network requests that overwrite the desired delay!
+    if (rescheduleDebounceRef.current) {
+      clearTimeout(rescheduleDebounceRef.current);
     }
+
+    rescheduleDebounceRef.current = setTimeout(() => {
+      rescheduleDebounceRef.current = null;
+      const remainingSecs = Math.max(1, Math.ceil((targetEndTimeRef.current - Date.now()) / 1000));
+      if (timerIdRef.current && remainingSecs > 0) {
+        scheduleServerPushTimer({
+          timerId: timerIdRef.current,
+          delaySeconds: remainingSecs,
+          exerciseName,
+        });
+      }
+    }, 400);
   };
 
   const setFixedTime = (seconds: number) => {
+    if (rescheduleDebounceRef.current) {
+      clearTimeout(rescheduleDebounceRef.current);
+      rescheduleDebounceRef.current = null;
+    }
+
     targetEndTimeRef.current = Date.now() + seconds * 1000;
     setTimeLeft(seconds);
     setTotalSeconds(seconds);
