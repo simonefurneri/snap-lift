@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse, after } from 'next/server';
-import { scheduleTimerPush, isTimerCancelled } from '@/lib/server/pushScheduler';
-import { sendWebPush } from '@/lib/server/webPush';
+import { scheduleTimerPush, dispatchScheduledPush } from '@/lib/server/pushScheduler';
 
 export const maxDuration = 60; // Keep Vercel serverless function execution budget up to 60s
 
@@ -27,25 +26,22 @@ export async function POST(req: NextRequest) {
       tag: 'rest-timer',
     };
 
-    const result = scheduleTimerPush(timerId, delaySeconds, subscription, payload);
+    const { scheduleId, delayMs } = scheduleTimerPush(timerId, delaySeconds, subscription, payload);
 
-    // For Vercel Serverless: use Next.js native after() to prevent Vercel from freezing the container!
-    // For timers <= 58s (like 15s test, 30s preset, etc.), this delivers the push directly with ZERO external services!
+    // For Vercel Serverless: use Next.js native after() to prevent Vercel from freezing the container.
+    // dispatchScheduledPush is 100% idempotent: exactly ONE notification will ever be sent!
     after(async () => {
-      const delayMs = Math.max(500, Math.round(delaySeconds * 1000));
       if (delaySeconds <= 58) {
         await new Promise((resolve) => setTimeout(resolve, delayMs));
-        if (!isTimerCancelled(timerId)) {
-          try {
-            await sendWebPush(subscription, payload);
-          } catch (err: any) {
-            console.error('[after/push] Error sending scheduled push:', err);
-          }
+        try {
+          await dispatchScheduledPush(scheduleId);
+        } catch (err: any) {
+          console.error('[after/push] Error dispatching scheduled push:', err);
         }
       }
     });
 
-    return NextResponse.json({ success: true, ...result });
+    return NextResponse.json({ success: true, scheduleId, delayMs });
   } catch (err: any) {
     console.error('[api/push/schedule] Error:', err);
     return NextResponse.json(

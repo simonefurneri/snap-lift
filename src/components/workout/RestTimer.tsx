@@ -62,6 +62,10 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
         exerciseName,
       });
     } else {
+      if (rescheduleDebounceRef.current) {
+        clearTimeout(rescheduleDebounceRef.current);
+        rescheduleDebounceRef.current = null;
+      }
       if (timerIdRef.current) {
         cancelServerPushTimer(timerIdRef.current);
       }
@@ -69,6 +73,10 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
     }
 
     return () => {
+      if (rescheduleDebounceRef.current) {
+        clearTimeout(rescheduleDebounceRef.current);
+        rescheduleDebounceRef.current = null;
+      }
       if (timerIdRef.current) {
         cancelServerPushTimer(timerIdRef.current);
       }
@@ -106,6 +114,10 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
         setIsRunning(false);
         setIsFinished(true);
         if (timerRef.current) clearInterval(timerRef.current);
+        if (rescheduleDebounceRef.current) {
+          clearTimeout(rescheduleDebounceRef.current);
+          rescheduleDebounceRef.current = null;
+        }
 
         // Haptic feedback
         triggerVibration([300, 150, 300, 150, 500]);
@@ -187,13 +199,15 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
 
     rescheduleDebounceRef.current = setTimeout(() => {
       rescheduleDebounceRef.current = null;
-      const remainingSecs = Math.max(1, Math.ceil((targetEndTimeRef.current - Date.now()) / 1000));
+      const remainingSecs = Math.ceil((targetEndTimeRef.current - Date.now()) / 1000);
       if (timerIdRef.current && remainingSecs > 0) {
         scheduleServerPushTimer({
           timerId: timerIdRef.current,
           delaySeconds: remainingSecs,
           exerciseName,
         });
+      } else if (timerIdRef.current && remainingSecs <= 0) {
+        cancelServerPushTimer(timerIdRef.current);
       }
     }, 400);
   };

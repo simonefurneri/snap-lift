@@ -1,17 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendWebPush } from '@/lib/server/webPush';
-import { isTimerCancelled } from '@/lib/server/pushScheduler';
+import { isTimerCancelled, dispatchScheduledPush } from '@/lib/server/pushScheduler';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { subscription, payload, timerId } = body;
+    const { subscription, payload, timerId, scheduleId } = body;
 
     if (!subscription || !payload) {
       return NextResponse.json(
         { error: 'Parametri mancanti (subscription, payload)' },
         { status: 400 }
       );
+    }
+
+    if (scheduleId) {
+      const dispatched = await dispatchScheduledPush(scheduleId);
+      return NextResponse.json({ success: true, dispatched });
     }
 
     if (timerId && isTimerCancelled(timerId)) {
