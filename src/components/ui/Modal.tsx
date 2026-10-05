@@ -71,7 +71,7 @@ export function Modal({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
+            transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
             onClick={onClose}
             className="fixed inset-0 bg-black/60"
             aria-hidden="true"
@@ -86,13 +86,15 @@ export function Modal({
               shouldReduceMotion
                 ? { duration: 0.15 }
                 : {
-                    type: 'spring',
-                    damping: 34,
-                    stiffness: 420,
-                    mass: 0.55,
+                    duration: 0.28,
+                    ease: [0.32, 0.72, 0, 1], // Apple iOS native sheet cubic-bezier
                   }
             }
-            style={{ willChange: 'transform', WebkitTransform: 'translate3d(0,0,0)' }}
+            style={{
+              willChange: 'transform',
+              WebkitBackfaceVisibility: 'hidden',
+              WebkitPerspective: 1000,
+            }}
             className={cn(
               'relative z-10 w-full bg-white dark:bg-zinc-900 border-t sm:border border-zinc-200 dark:border-zinc-800 rounded-t-[28px] sm:rounded-2xl shadow-2xl overflow-hidden max-h-[90dvh] flex flex-col pb-safe sm:pb-0 transform-gpu',
               maxWidthClasses[maxWidth],
