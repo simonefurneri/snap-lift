@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ImportedPlan, ImportedDay, ImportedExercise } from '@/app/api/import-plan/route';
 import {
   DndContext,
@@ -74,6 +74,7 @@ function SortableDayPill({
     <div
       ref={setNodeRef}
       style={style}
+      data-day-index={index}
       className={`group flex items-center rounded-2xl transition-all select-none shrink-0 ${
         isSelected
           ? 'bg-emerald-600 dark:bg-emerald-500 text-white dark:text-zinc-950 font-bold shadow-md shadow-emerald-500/20 ring-2 ring-emerald-500/40'
@@ -345,6 +346,40 @@ export function ImportReviewEditor({
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
 
+  const daysScrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Mouse wheel horizontal scroll listener (converts vertical wheel into horizontal scroll on desktop)
+  useEffect(() => {
+    const el = daysScrollContainerRef.current;
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY !== 0 && el.scrollWidth > el.clientWidth) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+      }
+    };
+
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+
+  // Auto-scroll to selected day when selectedDayIndex changes
+  useEffect(() => {
+    if (daysScrollContainerRef.current) {
+      const selectedEl = daysScrollContainerRef.current.querySelector(
+        `[data-day-index="${selectedDayIndex}"]`
+      );
+      if (selectedEl) {
+        selectedEl.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'center',
+        });
+      }
+    }
+  }, [selectedDayIndex]);
+
   // DND sensors for day reordering
   const daySensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -513,7 +548,10 @@ export function ImportReviewEditor({
             </button>
           </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 -mx-1 px-1 no-scrollbar touch-pan-x w-full">
+          <div
+            ref={daysScrollContainerRef}
+            className="flex items-center gap-2 overflow-x-auto pb-2 -mx-1 px-1 no-scrollbar touch-pan-x w-full"
+          >
             <DndContext
               sensors={daySensors}
               collisionDetection={closestCenter}
