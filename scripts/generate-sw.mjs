@@ -176,6 +176,63 @@ self.addEventListener('fetch', (event) => {
     );
   }
 });
+
+// 5. Push Notification Event Listener (Wakes up iOS/Android when locked or in other apps)
+self.addEventListener('push', (event) => {
+  let data = {
+    title: 'Recupero Terminato! ⏰',
+    body: 'È ora della prossima serie!',
+    url: '/workout',
+    tag: 'rest-timer',
+  };
+
+  if (event.data) {
+    try {
+      data = Object.assign(data, event.data.json());
+    } catch {
+      data.body = event.data.text() || data.body;
+    }
+  }
+
+  const options = {
+    body: data.body,
+    icon: '/icons/icon-192x192.png',
+    badge: '/icons/icon-192x192.png',
+    vibrate: [300, 100, 300, 100, 400],
+    tag: data.tag || 'rest-timer',
+    renotify: true,
+    data: {
+      url: data.url || '/workout',
+    },
+  };
+
+  event.waitUntil(self.registration.showNotification(data.title, options));
+});
+
+// 6. Notification Click Event Listener (Opens or focuses the workout session)
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || '/workout';
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      // Focus existing workout window if available
+      for (const client of windowClients) {
+        if (client.url && client.url.includes('/workout') && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // Otherwise focus any open tab of the app
+      if (windowClients.length > 0 && 'focus' in windowClients[0]) {
+        return windowClients[0].focus();
+      }
+      // Fallback: open window
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
 `;
 
 fs.writeFileSync(path.join(rootDir, 'public', 'sw.js'), swContent, 'utf8');

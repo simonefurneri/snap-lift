@@ -28,9 +28,15 @@ import {
   Users,
   ChevronRight,
   ShieldAlert,
+  Bell,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
+import {
+  getNotificationPermission,
+  requestNotificationPermission,
+  getPushSubscription,
+} from '@/lib/utils/pushNotifications';
 
 export default function ProfilePage() {
   const { user, profile, updateProfile, signOut } = useAuth();
@@ -43,11 +49,19 @@ export default function ProfilePage() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [pendingUsersCount, setPendingUsersCount] = useState<number | null>(null);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
+  const [isTestingPush, setIsTestingPush] = useState(false);
   const [isResetAllOpen, setIsResetAllOpen] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
   const [isDeleteAccountDoubleConfirmOpen, setIsDeleteAccountDoubleConfirmOpen] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setNotificationPermission(getNotificationPermission());
+    }
+  }, []);
 
   useEffect(() => {
     if (profile) {
@@ -78,6 +92,41 @@ export default function ProfilePage() {
   const handleSignOut = async () => {
     setIsSigningOut(true);
     await signOut();
+  };
+
+  const handleRequestPush = async () => {
+    const perm = await requestNotificationPermission();
+    setNotificationPermission(perm);
+    if (perm === 'granted') {
+      showToast('Notifiche push autorizzate con successo!');
+    } else {
+      showToast('Permesso notifiche non concesso.');
+    }
+  };
+
+  const handleTestPush = async () => {
+    setIsTestingPush(true);
+    try {
+      const sub = await getPushSubscription();
+      if (!sub) {
+        showToast('Nessuna sottoscrizione attiva. Autorizza prima le notifiche.');
+        return;
+      }
+      const res = await fetch('/api/push/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: sub.toJSON() }),
+      });
+      if (res.ok) {
+        showToast('Notifica push inviata! Blocca lo schermo per verificarla.');
+      } else {
+        showToast('Errore durante l\'invio della notifica di test.');
+      }
+    } catch {
+      showToast('Errore durante il test delle notifiche.');
+    } finally {
+      setIsTestingPush(false);
+    }
   };
 
   const handleLoadStepChange = (val: string) => {
@@ -341,6 +390,71 @@ export default function ProfilePage() {
               </Button>
             </div>
           </form>
+        </div>
+
+        {/* Rest Timer Push Notifications Section */}
+        <div className="bg-white dark:bg-zinc-900/90 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-5 sm:p-7 shadow-xs flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-zinc-800">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <Bell className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
+                    Notifiche Push Timer
+                  </h3>
+                  <span
+                    className={cn(
+                      'px-2 py-0.5 rounded-full text-[10px] font-extrabold',
+                      notificationPermission === 'granted'
+                        ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                        : notificationPermission === 'denied'
+                        ? 'bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300'
+                        : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+                    )}
+                  >
+                    {notificationPermission === 'granted'
+                      ? 'Attive'
+                      : notificationPermission === 'denied'
+                      ? 'Bloccate nel browser'
+                      : 'Da autorizzare'}
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                  Ricevi avvisi a schermo bloccato o mentre usi altre app quando scade il recupero.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-end sm:self-center">
+              {notificationPermission !== 'granted' ? (
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={handleRequestPush}
+                >
+                  <Bell className="w-3.5 h-3.5 mr-1" />
+                  <span>Autorizza Notifiche</span>
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleTestPush}
+                  isLoading={isTestingPush}
+                >
+                  <Bell className="w-3.5 h-3.5 mr-1" />
+                  <span>Invia Notifica di Test</span>
+                </Button>
+              )}
+            </div>
+          </div>
+          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+            Su iOS/iPhone le notifiche a schermo bloccato sono supportate installando SnapLift come PWA (pulsante Condividi &rarr; &quot;Aggiungi alla schermata Home&quot;).
+          </p>
         </div>
 
         {/* Appearance & Theme Section */}

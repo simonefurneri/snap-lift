@@ -3,7 +3,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, Plus, Minus, X, Bell } from 'lucide-react';
-import { playTimerCompleteBeep, triggerVibration, unlockAudio } from '@/lib/utils/audio';
+import { triggerVibration } from '@/lib/utils/audio';
+import {
+  scheduleServerPushTimer,
+  cancelServerPushTimer,
+  showLocalNotification,
+  requestNotificationPermission,
+  getNotificationPermission,
+} from '@/lib/utils/pushNotifications';
 
 interface RestTimerProps {
   initialSeconds: number;
@@ -17,29 +24,59 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
   const [totalSeconds, setTotalSeconds] = useState(initialSeconds);
   const [isRunning, setIsRunning] = useState(true);
   const [isFinished, setIsFinished] = useState(false);
+  const [permission, setPermission] = useState<NotificationPermission>('default');
 
   // Precision timestamp-based timer reference
   const targetEndTimeRef = useRef<number>(Date.now() + initialSeconds * 1000);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerIdRef = useRef<string>('');
 
-  // Request notification permission once on user interaction
+  // Check notification permission on mount
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission().catch(() => {});
+    if (typeof window !== 'undefined') {
+      setPermission(getNotificationPermission());
     }
   }, []);
 
-  // Initialize or reset timer & warm up audio pipeline
+  // Initialize or reset timer & schedule background push
   useEffect(() => {
     if (isOpen) {
-      unlockAudio();
       setTimeLeft(initialSeconds);
       setTotalSeconds(initialSeconds);
       targetEndTimeRef.current = Date.now() + initialSeconds * 1000;
       setIsRunning(true);
       setIsFinished(false);
+
+      // Generate a unique timerId for this countdown
+      const id = `timer-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      timerIdRef.current = id;
+
+      // Schedule real server-side push notification
+      scheduleServerPushTimer({
+        timerId: id,
+        delaySeconds: initialSeconds,
+        exerciseName,
+      });
+    } else {
+      if (timerIdRef.current) {
+        cancelServerPushTimer(timerIdRef.current);
+      }
     }
-  }, [isOpen, initialSeconds]);
+
+    return () => {
+      if (timerIdRef.current) {
+        cancelServerPushTimer(timerIdRef.current);
+      }
+    };
+  }, [isOpen, initialSeconds, exerciseName]);
+
+  // Handle Close / Cancel
+  const handleClose = () => {
+    if (timerIdRef.current) {
+      cancelServerPushTimer(timerIdRef.current);
+    }
+    onClose();
+  };
 
   // Timestamp precision tick handler
   useEffect(() => {
@@ -60,20 +97,13 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
         setIsFinished(true);
         if (timerRef.current) clearInterval(timerRef.current);
 
-        // Sound & Vibration Feedback
-        playTimerCompleteBeep();
+        // Vibration Feedback
         triggerVibration([300, 150, 300, 150, 500]);
 
-        // Background Notification if document is hidden
-        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted' && document.hidden) {
-          try {
-            new Notification('Recupero Terminato! ⏰', {
-              body: exerciseName ? `È ora della prossima serie per ${exerciseName}.` : 'È ora della prossima serie.',
-              icon: '/icons/icon-192x192.png',
-              badge: '/icons/icon-192x192.png',
-            });
-          } catch {}
-        }
+        // Native Notification via Service Worker registration
+        showLocalNotification('Recupero Terminato! ⏰', {
+          body: exerciseName ? `È ora della prossima serie per ${exerciseName}.` : 'È ora della prossima serie.',
+        });
       }
     };
 
@@ -101,11 +131,24 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
   const togglePlayPause = () => {
     if (isRunning) {
       setIsRunning(false);
+      // Cancel server push while paused
+      if (timerIdRef.current) {
+        cancelServerPushTimer(timerIdRef.current);
+      }
     } else {
       // Resume by shifting target timestamp
       targetEndTimeRef.current = Date.now() + timeLeft * 1000;
       setIsRunning(true);
       setIsFinished(false);
+
+      // Reschedule server push for remaining seconds
+      if (timerIdRef.current && timeLeft > 0) {
+        scheduleServerPushTimer({
+          timerId: timerIdRef.current,
+          delaySeconds: timeLeft,
+          exerciseName,
+        });
+      }
     }
   };
 
@@ -120,6 +163,15 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
       setIsFinished(false);
       setIsRunning(true);
     }
+
+    // Reschedule push for updated duration
+    if (timerIdRef.current && next > 0) {
+      scheduleServerPushTimer({
+        timerId: timerIdRef.current,
+        delaySeconds: next,
+        exerciseName,
+      });
+    }
   };
 
   const setFixedTime = (seconds: number) => {
@@ -128,6 +180,27 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
     setTotalSeconds(seconds);
     setIsRunning(true);
     setIsFinished(false);
+
+    // Reschedule push for fixed time
+    if (timerIdRef.current && seconds > 0) {
+      scheduleServerPushTimer({
+        timerId: timerIdRef.current,
+        delaySeconds: seconds,
+        exerciseName,
+      });
+    }
+  };
+
+  const handleEnableNotifications = async () => {
+    const perm = await requestNotificationPermission();
+    setPermission(perm);
+    if (perm === 'granted' && timerIdRef.current && timeLeft > 0) {
+      scheduleServerPushTimer({
+        timerId: timerIdRef.current,
+        delaySeconds: timeLeft,
+        exerciseName,
+      });
+    }
   };
 
   const formatTime = (secs: number) => {
@@ -183,13 +256,28 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="p-1 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors ml-1 cursor-pointer"
               aria-label="Chiudi timer"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
+
+          {/* Permission Prompt Banner if not granted */}
+          {permission !== 'granted' && (
+            <button
+              type="button"
+              onClick={handleEnableNotifications}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs font-bold transition-all hover:bg-amber-500/20 cursor-pointer"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <Bell className="w-4 h-4 text-amber-500 shrink-0" />
+                <span className="truncate">Attiva notifiche per schermo bloccato</span>
+              </div>
+              <span className="text-[11px] font-extrabold underline shrink-0 pl-1">Consenti</span>
+            </button>
+          )}
 
           {/* Time Display & Quick Controls */}
           <div className="flex items-center justify-between my-1">
@@ -258,7 +346,7 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline px-1 py-0.5 cursor-pointer"
             >
               Salta
