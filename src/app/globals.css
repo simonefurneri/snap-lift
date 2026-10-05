@@ -78,39 +78,37 @@ body {
 }
 
 /* Mobile safe area utilities */
-.safe-bottom, .pb-safe {
+@utility safe-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
-
-.safe-top, .pt-safe {
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@utility safe-top {
   padding-top: env(safe-area-inset-top, 0px);
 }
-
-.pl-safe {
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+@utility pl-safe {
   padding-left: env(safe-area-inset-left, 0px);
 }
-
-.pr-safe {
+@utility pr-safe {
   padding-right: env(safe-area-inset-right, 0px);
 }
-
-.mt-safe {
+@utility mt-safe {
   margin-top: env(safe-area-inset-top, 0px);
 }
-
-.mb-safe {
+@utility mb-safe {
   margin-bottom: env(safe-area-inset-bottom, 0px);
 }
-
-.top-safe {
+@utility top-safe {
   top: env(safe-area-inset-top, 0px);
 }
-
-.bottom-safe {
+@utility bottom-safe {
   bottom: env(safe-area-inset-bottom, 0px);
 }
-
-.min-h-screen-safe {
+@utility min-h-screen-safe {
   min-height: 100dvh;
   min-height: -webkit-fill-available;
 }

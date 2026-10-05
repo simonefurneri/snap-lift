@@ -655,25 +655,26 @@ export function ImportReviewEditor({
       </div>
 
       {/* 4. Docked Bottom Actions: Save Plan & Cancel */}
-      <div className="px-4 pt-3 pb-safe sm:px-5 sm:py-3.5 border-t border-slate-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md flex flex-col sm:flex-row-reverse items-stretch sm:items-center sm:justify-start gap-2 sm:gap-3 shrink-0">
+      <div className="px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:px-5 sm:py-4 border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-end gap-3 shrink-0">
         <Button
+          type="button"
+          variant="secondary"
+          size="md"
+          onClick={() => setIsCancelConfirmOpen(true)}
+        >
+          Annulla
+        </Button>
+
+        <Button
+          type="button"
           variant="primary"
           size="md"
           onClick={() => onSave(plan)}
           isLoading={isSaving}
-          className="w-full sm:w-auto justify-center font-bold shadow-md shadow-emerald-500/25"
+          className="shadow-md shadow-emerald-500/20"
         >
           <Check className="w-4 h-4 mr-1.5 shrink-0" />
           <span>Salva e Crea Piano</span>
-        </Button>
-
-        <Button
-          variant="secondary"
-          size="md"
-          onClick={() => setIsCancelConfirmOpen(true)}
-          className="w-full sm:w-auto justify-center font-semibold"
-        >
-          Annulla
         </Button>
       </div>
 

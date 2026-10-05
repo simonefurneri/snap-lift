@@ -12,6 +12,7 @@ import { ImportLoadingState } from '@/components/import/ImportLoadingState';
 import { ImportReviewEditor } from '@/components/import/ImportReviewEditor';
 import { AlertCircle, RotateCcw, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { cn } from '@/lib/utils/cn';
 
 interface ImportPlanModalProps {
   isOpen: boolean;
@@ -144,12 +145,15 @@ export function ImportPlanModal({ isOpen, onClose, onSuccess }: ImportPlanModalP
       }
       maxWidth={step === 'review' ? '2xl' : 'lg'}
       className={step === 'review' ? 'h-[90dvh] sm:h-[85vh]' : undefined}
-      contentClassName={step === 'review' ? 'p-0 overflow-hidden flex flex-col flex-1 min-h-0' : undefined}
+      contentClassName={step === 'review' ? 'p-0 sm:p-0 overflow-hidden flex flex-col flex-1 min-h-0' : undefined}
     >
       <div className={step === 'review' ? 'h-full flex flex-col min-h-0 flex-1 overflow-hidden' : 'pt-2'}>
         {/* Error Alert Box */}
         {errorMessage && (
-          <div className="mb-4 p-4 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 flex flex-col gap-3 text-xs text-red-700 dark:text-red-300">
+          <div className={cn(
+            'p-4 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 flex flex-col gap-3 text-xs text-red-700 dark:text-red-300',
+            step === 'review' ? 'm-4 mb-2' : 'mb-4'
+          )}>
             <div className="flex items-start gap-2.5">
               <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
               <p className="font-semibold leading-relaxed">{errorMessage}</p>
