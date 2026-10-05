@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ImportedPlan, ImportedDay, ImportedExercise } from '@/app/api/import-plan/route';
 import {
   DndContext,
@@ -345,22 +345,30 @@ export function ImportReviewEditor({
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
 
-  const daysScrollContainerRef = useRef<HTMLDivElement>(null);
+  const daysScrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const daysScrollCleanupRef = useRef<(() => void) | null>(null);
 
-  // Mouse wheel horizontal scroll listener (converts vertical wheel into horizontal scroll on desktop)
-  useEffect(() => {
-    const el = daysScrollContainerRef.current;
-    if (!el) return;
+  const daysScrollCallbackRef = useCallback((node: HTMLDivElement | null) => {
+    if (daysScrollCleanupRef.current) {
+      daysScrollCleanupRef.current();
+      daysScrollCleanupRef.current = null;
+    }
 
-    const onWheel = (e: WheelEvent) => {
-      if (e.deltaY !== 0 && el.scrollWidth > el.clientWidth) {
-        e.preventDefault();
-        el.scrollLeft += e.deltaY;
-      }
-    };
+    daysScrollContainerRef.current = node;
 
-    el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
+    if (node) {
+      const onWheel = (e: WheelEvent) => {
+        if (e.deltaY !== 0 && node.scrollWidth > node.clientWidth) {
+          e.preventDefault();
+          node.scrollLeft += e.deltaY;
+        }
+      };
+
+      node.addEventListener('wheel', onWheel, { passive: false });
+      daysScrollCleanupRef.current = () => {
+        node.removeEventListener('wheel', onWheel);
+      };
+    }
   }, []);
 
   // Auto-scroll to selected day when selectedDayIndex changes
@@ -561,8 +569,8 @@ export function ImportReviewEditor({
           </div>
 
           <div
-            ref={daysScrollContainerRef}
-            className="flex items-center gap-2 overflow-x-auto pb-2 -mx-1 px-1 no-scrollbar touch-pan-x w-full"
+            ref={daysScrollCallbackRef}
+            className="flex items-center gap-2 overflow-x-auto pb-2 -mx-1 px-1 no-scrollbar touch-pan-x w-full scroll-smooth"
           >
             <DndContext
               sensors={daySensors}
