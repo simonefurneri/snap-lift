@@ -266,10 +266,22 @@ export function WorkoutRunner({
   // Update a set row's value
   const handleUpdateSet = (index: number, field: 'weight' | 'reps', value: string) => {
     if (!currentKey) return;
+    let sanitizedValue = value;
+    if (field === 'weight') {
+      // Replace comma with dot to support Italian/European keyboard separator
+      sanitizedValue = value.replace(',', '.');
+      // Only allow numbers and at most one decimal point
+      if (!/^\d*\.?\d*$/.test(sanitizedValue)) {
+        return;
+      }
+    } else if (field === 'reps') {
+      sanitizedValue = value.replace(/[^0-9]/g, '');
+    }
+
     setExerciseSetsMap((prev) => {
       const list = [...(prev[currentKey] || [])];
       if (list[index]) {
-        list[index] = { ...list[index], [field]: value };
+        list[index] = { ...list[index], [field]: sanitizedValue };
       }
       return { ...prev, [currentKey]: list };
     });
@@ -303,7 +315,7 @@ export function WorkoutRunner({
     const nextCompleted = !setRow.isCompleted;
 
     // Use entered weight or suggested weight as fallback if empty
-    const weightNum = parseFloat(setRow.weight) || progressionResult.suggestedWeight || 0;
+    const weightNum = parseFloat(setRow.weight?.replace(',', '.')) || progressionResult.suggestedWeight || 0;
     const repsNum = parseInt(setRow.reps, 10) || currentExercise.reps_max || 0;
     const logId = setRow.savedLogId || crypto.randomUUID();
 
@@ -415,7 +427,7 @@ export function WorkoutRunner({
       sets.forEach((s) => {
         if (s.isCompleted) {
           completedSetsCount += 1;
-          const w = parseFloat(s.weight) || 0;
+          const w = parseFloat(s.weight?.replace(',', '.')) || 0;
           const r = parseInt(s.reps, 10) || 0;
           totalVolume += w * r;
         }
@@ -717,10 +729,8 @@ export function WorkoutRunner({
                     {/* Weight Input */}
                     <div className="col-span-5 sm:col-span-3 relative">
                       <input
-                        type="number"
+                        type="text"
                         inputMode="decimal"
-                        step="0.25"
-                        min="0"
                         placeholder={suggestedPlaceholder || '0'}
                         value={setRow.weight}
                         onChange={(e) => handleUpdateSet(index, 'weight', e.target.value)}
@@ -745,11 +755,9 @@ export function WorkoutRunner({
                     {/* Reps Input */}
                     <div className="col-span-3 sm:col-span-2">
                       <input
-                        type="number"
+                        type="text"
                         inputMode="numeric"
                         pattern="[0-9]*"
-                        step="1"
-                        min="0"
                         placeholder={currentExercise.reps_max.toString()}
                         value={setRow.reps}
                         onChange={(e) => handleUpdateSet(index, 'reps', e.target.value)}
