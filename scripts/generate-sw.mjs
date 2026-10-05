@@ -200,13 +200,20 @@ self.addEventListener('push', (event) => {
     badge: '/icons/icon-192x192.png',
     vibrate: [300, 100, 300, 100, 400],
     tag: data.tag || 'rest-timer',
-    renotify: true,
+    renotify: false,
     data: {
       url: data.url || '/workout',
     },
   };
 
-  event.waitUntil(self.registration.showNotification(data.title, options));
+  event.waitUntil(
+    self.registration.getNotifications({ tag: options.tag }).then((existingList) => {
+      if (existingList && existingList.length > 0) {
+        existingList.forEach((n) => n.close());
+      }
+      return self.registration.showNotification(data.title, options);
+    })
+  );
 });
 
 // 6. Notification Click Event Listener (Opens or focuses the workout session)

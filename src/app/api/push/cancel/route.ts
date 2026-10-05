@@ -4,13 +4,15 @@ import { cancelTimerPush } from '@/lib/server/pushScheduler';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { timerId } = body;
+    const { timerId, endpoint } = body;
 
-    if (!timerId) {
-      return NextResponse.json({ error: 'timerId mancante' }, { status: 400 });
+    let cancelled = false;
+    if (timerId) {
+      cancelled = cancelTimerPush(timerId) || cancelled;
     }
-
-    const cancelled = cancelTimerPush(timerId);
+    if (endpoint) {
+      cancelled = cancelTimerPush(endpoint) || cancelled;
+    }
 
     return NextResponse.json({ success: true, cancelled });
   } catch (err: any) {

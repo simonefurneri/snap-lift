@@ -4,18 +4,24 @@ import type { PushSubscription } from 'web-push';
 interface ScheduledItem {
   timeoutId: NodeJS.Timeout;
   scheduledTime: number;
+  endpoint: string;
 }
 
 // Global in-memory storage across API requests in Node runtime
 const globalStore = globalThis as unknown as {
   __snaplift_push_timers?: Map<string, ScheduledItem>;
+  __snaplift_endpoint_timers?: Map<string, string>;
 };
 
 if (!globalStore.__snaplift_push_timers) {
   globalStore.__snaplift_push_timers = new Map<string, ScheduledItem>();
 }
+if (!globalStore.__snaplift_endpoint_timers) {
+  globalStore.__snaplift_endpoint_timers = new Map<string, string>();
+}
 
 const activeTimers = globalStore.__snaplift_push_timers;
+const endpointTimers = globalStore.__snaplift_endpoint_timers;
 
 export function scheduleTimerPush(
   timerId: string,
@@ -23,13 +29,24 @@ export function scheduleTimerPush(
   subscription: PushSubscription,
   payload: PushNotificationPayload
 ) {
-  // Cancel previous timer for this timerId if exists
+  const endpoint = subscription.endpoint;
+
+  // 1. Cancel previous timer for this exact timerId if exists
   cancelTimerPush(timerId);
+
+  // 2. IMPORTANT: Cancel any existing timer for this same device endpoint!
+  // A device can only have ONE rest timer at any given moment.
+  // This completely eliminates ghost/duplicate timers from previous sets or remounts.
+  const existingTimerIdForEndpoint = endpointTimers.get(endpoint);
+  if (existingTimerIdForEndpoint && existingTimerIdForEndpoint !== timerId) {
+    cancelTimerPush(existingTimerIdForEndpoint);
+  }
 
   const delayMs = Math.max(500, Math.round(delaySeconds * 1000));
 
   const timeoutId = setTimeout(async () => {
     activeTimers.delete(timerId);
+    endpointTimers.delete(endpoint);
     try {
       await sendWebPush(subscription, payload);
     } catch (err: any) {
@@ -45,7 +62,9 @@ export function scheduleTimerPush(
   activeTimers.set(timerId, {
     timeoutId,
     scheduledTime: Date.now() + delayMs,
+    endpoint,
   });
+  endpointTimers.set(endpoint, timerId);
 
   // If QStash is configured (for serverless environments like Vercel), schedule via QStash
   if (process.env.QSTASH_TOKEN) {
@@ -71,12 +90,27 @@ export function scheduleTimerPush(
   return { scheduled: true, delayMs };
 }
 
-export function cancelTimerPush(timerId: string) {
-  const existing = activeTimers.get(timerId);
+export function cancelTimerPush(timerIdOrEndpoint: string) {
+  // Check if it's an endpoint
+  const timerIdFromEndpoint = endpointTimers.get(timerIdOrEndpoint);
+  const targetTimerId = timerIdFromEndpoint || timerIdOrEndpoint;
+
+  const existing = activeTimers.get(targetTimerId);
   if (existing) {
     clearTimeout(existing.timeoutId);
-    activeTimers.delete(timerId);
+    activeTimers.delete(targetTimerId);
+    if (existing.endpoint) {
+      endpointTimers.delete(existing.endpoint);
+    }
     return true;
   }
+
+  // Also check if timerId was passed and clean up endpoint mapping
+  for (const [ep, tid] of endpointTimers.entries()) {
+    if (tid === targetTimerId) {
+      endpointTimers.delete(ep);
+    }
+  }
+
   return false;
 }

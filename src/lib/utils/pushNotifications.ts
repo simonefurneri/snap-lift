@@ -102,17 +102,39 @@ export async function scheduleServerPushTimer({
 /**
  * Cancels a scheduled rest timer notification on the server.
  */
-export async function cancelServerPushTimer(timerId: string): Promise<boolean> {
+export async function cancelServerPushTimer(timerId?: string): Promise<boolean> {
   try {
+    const subscription = await getPushSubscription();
     const res = await fetch('/api/push/cancel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ timerId }),
+      body: JSON.stringify({
+        timerId,
+        endpoint: subscription?.endpoint,
+      }),
     });
     return res.ok;
   } catch (err) {
     console.error('[push] Error cancelling server push timer:', err);
     return false;
+  }
+}
+
+/**
+ * Closes and clears any active rest-timer notifications from the device notification center.
+ */
+export async function closeRestTimerNotifications(): Promise<void> {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    if ('getNotifications' in registration) {
+      const notifications = await registration.getNotifications({ tag: 'rest-timer' });
+      for (const n of notifications) {
+        n.close();
+      }
+    }
+  } catch (err) {
+    console.warn('[push] Error closing rest timer notifications:', err);
   }
 }
 

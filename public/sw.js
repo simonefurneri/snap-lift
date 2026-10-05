@@ -1,5 +1,5 @@
 // Auto-generated during build. Do not edit directly.
-const CACHE_VERSION = 'snaplift-build-1791231959220';
+const CACHE_VERSION = 'snaplift-build-1791233152684';
 const STATIC_CACHE = `snaplift-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `snaplift-dynamic-${CACHE_VERSION}`;
 
@@ -186,13 +186,20 @@ self.addEventListener('push', (event) => {
     badge: '/icons/icon-192x192.png',
     vibrate: [300, 100, 300, 100, 400],
     tag: data.tag || 'rest-timer',
-    renotify: true,
+    renotify: false,
     data: {
       url: data.url || '/workout',
     },
   };
 
-  event.waitUntil(self.registration.showNotification(data.title, options));
+  event.waitUntil(
+    self.registration.getNotifications({ tag: options.tag }).then((existingList) => {
+      if (existingList && existingList.length > 0) {
+        existingList.forEach((n) => n.close());
+      }
+      return self.registration.showNotification(data.title, options);
+    })
+  );
 });
 
 // 6. Notification Click Event Listener (Opens or focuses the workout session)

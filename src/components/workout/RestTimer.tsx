@@ -7,7 +7,7 @@ import { triggerVibration } from '@/lib/utils/audio';
 import {
   scheduleServerPushTimer,
   cancelServerPushTimer,
-  showLocalNotification,
+  closeRestTimerNotifications,
   requestNotificationPermission,
   getNotificationPermission,
 } from '@/lib/utils/pushNotifications';
@@ -47,6 +47,9 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
       setIsRunning(true);
       setIsFinished(false);
 
+      // Dismiss any lingering old notifications
+      closeRestTimerNotifications();
+
       // Generate a unique timerId for this countdown
       const id = `timer-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
       timerIdRef.current = id;
@@ -61,6 +64,7 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
       if (timerIdRef.current) {
         cancelServerPushTimer(timerIdRef.current);
       }
+      closeRestTimerNotifications();
     }
 
     return () => {
@@ -75,6 +79,7 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
     if (timerIdRef.current) {
       cancelServerPushTimer(timerIdRef.current);
     }
+    closeRestTimerNotifications();
     onClose();
   };
 
@@ -97,13 +102,12 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
         setIsFinished(true);
         if (timerRef.current) clearInterval(timerRef.current);
 
-        // Vibration Feedback
+        // Haptic feedback
         triggerVibration([300, 150, 300, 150, 500]);
 
-        // Native Notification via Service Worker registration
-        showLocalNotification('Recupero Terminato! ⏰', {
-          body: exerciseName ? `È ora della prossima serie per ${exerciseName}.` : 'È ora della prossima serie.',
-        });
+        // NOTE: Server-side push notification is already dispatched via APNs / Web Push
+        // at the exact second the timer reaches 0. We do not dispatch a duplicate local
+        // notification here to prevent double notification banners on iOS / mobile.
       }
     };
 
@@ -162,6 +166,7 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
     if (isFinished) {
       setIsFinished(false);
       setIsRunning(true);
+      closeRestTimerNotifications();
     }
 
     // Reschedule push for updated duration
@@ -180,6 +185,7 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
     setTotalSeconds(seconds);
     setIsRunning(true);
     setIsFinished(false);
+    closeRestTimerNotifications();
 
     // Reschedule push for fixed time
     if (timerIdRef.current && seconds > 0) {

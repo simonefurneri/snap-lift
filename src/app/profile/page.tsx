@@ -98,7 +98,12 @@ export default function ProfilePage() {
     const perm = await requestNotificationPermission();
     setNotificationPermission(perm);
     if (perm === 'granted') {
-      showToast('Notifiche push autorizzate con successo!');
+      const sub = await getPushSubscription();
+      if (sub) {
+        showToast('Notifiche push attivate e collegate con successo!');
+      } else {
+        showToast('Permesso concesso. Configurazione in corso...');
+      }
     } else {
       showToast('Permesso notifiche non concesso.');
     }
@@ -107,9 +112,13 @@ export default function ProfilePage() {
   const handleTestPush = async () => {
     setIsTestingPush(true);
     try {
-      const sub = await getPushSubscription();
+      let sub = await getPushSubscription();
       if (!sub) {
-        showToast('Nessuna sottoscrizione attiva. Autorizza prima le notifiche.');
+        await requestNotificationPermission();
+        sub = await getPushSubscription();
+      }
+      if (!sub) {
+        showToast('Nessuna sottoscrizione attiva. Assicurati che l\'app sia installata su schermata Home.');
         return;
       }
       const res = await fetch('/api/push/test', {
@@ -118,7 +127,7 @@ export default function ProfilePage() {
         body: JSON.stringify({ subscription: sub.toJSON() }),
       });
       if (res.ok) {
-        showToast('Notifica push inviata! Blocca lo schermo per verificarla.');
+        showToast('Notifica programmata (5s)! Blocca lo schermo o cambia app.');
       } else {
         showToast('Errore durante l\'invio della notifica di test.');
       }
