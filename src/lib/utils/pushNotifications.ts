@@ -102,16 +102,13 @@ export async function scheduleServerPushTimer({
 /**
  * Cancels a scheduled rest timer notification on the server.
  */
-export async function cancelServerPushTimer(timerId?: string): Promise<boolean> {
+export async function cancelServerPushTimer(timerId: string): Promise<boolean> {
+  if (!timerId) return false;
   try {
-    const subscription = await getPushSubscription();
     const res = await fetch('/api/push/cancel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        timerId,
-        endpoint: subscription?.endpoint,
-      }),
+      body: JSON.stringify({ timerId }),
     });
     return res.ok;
   } catch (err) {

@@ -9,6 +9,7 @@ export function PwaRegister() {
         .register('/sw.js')
         .then((reg) => {
           console.log('Service Worker registered with scope:', reg.scope);
+          reg.update().catch(() => {});
         })
         .catch((err) => {
           console.warn('Service Worker registration failed:', err);

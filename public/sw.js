@@ -1,5 +1,5 @@
 // Auto-generated during build. Do not edit directly.
-const CACHE_VERSION = 'snaplift-build-1791233428168';
+const CACHE_VERSION = 'snaplift-build-1791233873489';
 const STATIC_CACHE = `snaplift-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `snaplift-dynamic-${CACHE_VERSION}`;
 
@@ -24,13 +24,11 @@ const AUTH_ROUTES = [
 
 // 1. Install Event: Pre-cache app shell and offline page
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches
       .open(STATIC_CACHE)
       .then((cache) => cache.addAll(PRECACHE_ASSETS))
-      .then(() => {
-        // Do not force skipWaiting immediately to allow the client to show "Nuova versione disponibile"
-      })
   );
 });
 
@@ -186,20 +184,13 @@ self.addEventListener('push', (event) => {
     badge: '/icons/icon-192x192.png',
     vibrate: [300, 100, 300, 100, 400],
     tag: data.tag || 'rest-timer',
-    renotify: false,
+    renotify: true,
     data: {
       url: data.url || '/workout',
     },
   };
 
-  event.waitUntil(
-    self.registration.getNotifications({ tag: options.tag }).then((existingList) => {
-      if (existingList && existingList.length > 0) {
-        existingList.forEach((n) => n.close());
-      }
-      return self.registration.showNotification(data.title, options);
-    })
-  );
+  event.waitUntil(self.registration.showNotification(data.title, options));
 });
 
 // 6. Notification Click Event Listener (Opens or focuses the workout session)

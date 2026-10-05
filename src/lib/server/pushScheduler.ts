@@ -90,26 +90,17 @@ export function scheduleTimerPush(
   return { scheduled: true, delayMs };
 }
 
-export function cancelTimerPush(timerIdOrEndpoint: string) {
-  // Check if it's an endpoint
-  const timerIdFromEndpoint = endpointTimers.get(timerIdOrEndpoint);
-  const targetTimerId = timerIdFromEndpoint || timerIdOrEndpoint;
+export function cancelTimerPush(timerId: string) {
+  if (!timerId) return false;
 
-  const existing = activeTimers.get(targetTimerId);
+  const existing = activeTimers.get(timerId);
   if (existing) {
     clearTimeout(existing.timeoutId);
-    activeTimers.delete(targetTimerId);
-    if (existing.endpoint) {
+    activeTimers.delete(timerId);
+    if (existing.endpoint && endpointTimers.get(existing.endpoint) === timerId) {
       endpointTimers.delete(existing.endpoint);
     }
     return true;
-  }
-
-  // Also check if timerId was passed and clean up endpoint mapping
-  for (const [ep, tid] of endpointTimers.entries()) {
-    if (tid === targetTimerId) {
-      endpointTimers.delete(ep);
-    }
   }
 
   return false;
