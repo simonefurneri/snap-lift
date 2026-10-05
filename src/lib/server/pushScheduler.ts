@@ -37,11 +37,11 @@ export function scheduleTimerPush(
 ) {
   const endpoint = subscription.endpoint;
 
-  // 1. Remove from cancelled set if re-used
-  cancelledTimers.delete(timerId);
-
-  // 2. Cancel previous timer for this exact timerId if exists
+  // 1. Cancel previous timer for this exact timerId if exists
   cancelTimerPush(timerId);
+
+  // 2. Ensure this newly scheduled timer is NOT marked as cancelled
+  cancelledTimers.delete(timerId);
 
   // 3. IMPORTANT: Cancel any existing timer for this same device endpoint!
   // A device can only have ONE rest timer at any given moment.
