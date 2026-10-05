@@ -45,6 +45,8 @@ interface ExerciseListProps {
   ) => Promise<void>;
   onDeleteExercise: (exerciseId: string) => Promise<void>;
   onReorderExercises: (dayId: string, orderedIds: string[]) => Promise<void>;
+  onStartWorkout?: () => Promise<void> | void;
+  isStartingWorkout?: boolean;
 }
 
 export function ExerciseList({
@@ -55,6 +57,8 @@ export function ExerciseList({
   onUpdateExercise,
   onDeleteExercise,
   onReorderExercises,
+  onStartWorkout,
+  isStartingWorkout = false,
 }: ExerciseListProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [exerciseToEdit, setExerciseToEdit] = useState<Exercise | null>(null);
@@ -121,7 +125,7 @@ export function ExerciseList({
   return (
     <div className="flex flex-col gap-4">
       {/* Top Header inside day */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h3 className="font-bold text-base sm:text-lg text-zinc-900 dark:text-zinc-100">
             {dayName}
@@ -133,18 +137,33 @@ export function ExerciseList({
           </p>
         </div>
 
-        <Button
-          variant="primary"
-          size="md"
-          onClick={() => {
-            setExerciseToEdit(null);
-            setIsModalOpen(true);
-          }}
-          className="shadow-md shadow-emerald-500/20"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Aggiungi Esercizio</span>
-        </Button>
+        <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+          {onStartWorkout && exercises.length > 0 && (
+            <Button
+              variant="primary"
+              size="md"
+              onClick={onStartWorkout}
+              disabled={isStartingWorkout}
+              className="shadow-lg shadow-emerald-500/25 flex-1 sm:flex-initial"
+            >
+              <Dumbbell className="w-4 h-4 mr-1.5" />
+              <span>{isStartingWorkout ? 'Avvio...' : 'Inizia Allenamento'}</span>
+            </Button>
+          )}
+
+          <Button
+            variant={exercises.length > 0 ? 'outline' : 'primary'}
+            size="md"
+            onClick={() => {
+              setExerciseToEdit(null);
+              setIsModalOpen(true);
+            }}
+            className={exercises.length > 0 ? 'flex-1 sm:flex-initial' : 'shadow-md shadow-emerald-500/20'}
+          >
+            <Plus className="w-4 h-4" />
+            <span>Aggiungi Esercizio</span>
+          </Button>
+        </div>
       </div>
 
       {/* Exercise items list */}

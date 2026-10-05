@@ -35,6 +35,7 @@ export default function PlanDetailPage({
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditPlanModalOpen, setIsEditPlanModalOpen] = useState(false);
+  const [isStartingWorkout, setIsStartingWorkout] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -180,6 +181,19 @@ export default function PlanDetailPage({
     0
   );
 
+  const handleStartWorkout = async () => {
+    if (!user || !selectedDay || isStartingWorkout) return;
+    setIsStartingWorkout(true);
+    try {
+      const sess = await workoutService.startSession(user.id, selectedDay.id);
+      router.push(`/workout/${sess.id}`);
+    } catch (err) {
+      console.error('Failed to start workout', err);
+      showToast("Errore durante l'avvio dell'allenamento");
+      setIsStartingWorkout(false);
+    }
+  };
+
   return (
     <AppLayout>
       <div className="flex flex-col gap-6 max-w-4xl mx-auto">
@@ -238,7 +252,7 @@ export default function PlanDetailPage({
                     </p>
                   )}
 
-                  {/* Summary counts & Start Workout */}
+                  {/* Summary counts */}
                   <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                     <span className="flex items-center gap-1.5">
                       <Calendar className="w-4 h-4 text-emerald-500" />
@@ -252,22 +266,6 @@ export default function PlanDetailPage({
                 </div>
 
                 <div className="flex items-center gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
-                  {selectedDay && selectedDay.exercises && selectedDay.exercises.length > 0 && (
-                    <Button
-                      variant="primary"
-                      size="md"
-                      onClick={async () => {
-                        if (!user || !selectedDay) return;
-                        const sess = await workoutService.startSession(user.id, selectedDay.id);
-                        router.push(`/workout/${sess.id}`);
-                      }}
-                      className="shadow-lg shadow-emerald-500/25 animate-pulse"
-                    >
-                      <Dumbbell className="w-4 h-4 mr-1.5" />
-                      <span>Inizia Allenamento</span>
-                    </Button>
-                  )}
-
                   <Button
                     variant="outline"
                     size="md"
@@ -305,6 +303,8 @@ export default function PlanDetailPage({
                   onUpdateExercise={handleUpdateExercise}
                   onDeleteExercise={handleDeleteExercise}
                   onReorderExercises={handleReorderExercises}
+                  onStartWorkout={handleStartWorkout}
+                  isStartingWorkout={isStartingWorkout}
                 />
               </div>
             ) : (
