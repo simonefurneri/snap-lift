@@ -13,7 +13,7 @@ export const planImportService = {
       .insert({
         user_id: userId,
         name: planData.plan_name.trim() || 'Piano importato',
-        notes: 'Importato da foto con AI',
+        notes: planData.notes?.trim() || 'Importato da foto con AI',
         archived: false,
       } as any)
       .select()
