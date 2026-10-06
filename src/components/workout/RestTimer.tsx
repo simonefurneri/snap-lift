@@ -255,24 +255,26 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
 
   const progressPct = totalSeconds > 0 ? ((totalSeconds - timeLeft) / totalSeconds) * 100 : 100;
 
-  if (!isOpen) return null;
-
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ y: 80, opacity: 0, scale: 0.95 }}
-        animate={{ y: 0, opacity: 1, scale: 1 }}
-        exit={{ y: 80, opacity: 0, scale: 0.95 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 sm:w-96 z-50 shadow-2xl rounded-3xl bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border border-emerald-500/30 dark:border-emerald-500/20 overflow-hidden"
-      >
-        {/* Top Progress bar */}
-        <div className="w-full bg-slate-100 dark:bg-zinc-800 h-1.5 overflow-hidden">
-          <motion.div
-            className="h-full bg-emerald-500 transition-all duration-300 ease-linear"
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
+    <motion.div
+      initial={{ y: 90, opacity: 0, scale: 0.95 }}
+      animate={{ y: 0, opacity: 1, scale: 1 }}
+      exit={{ y: 90, opacity: 0, scale: 0.95 }}
+      transition={{
+        type: 'spring',
+        damping: 28,
+        stiffness: 260,
+        mass: 0.8,
+      }}
+      className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 sm:w-96 z-50 shadow-2xl rounded-3xl bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border border-emerald-500/30 dark:border-emerald-500/20 overflow-hidden"
+    >
+      {/* Top Progress bar */}
+      <div className="w-full bg-slate-100 dark:bg-zinc-800 h-1.5 overflow-hidden">
+        <motion.div
+          className="h-full bg-emerald-500 transition-all duration-300 ease-linear"
+          style={{ width: `${progressPct}%` }}
+        />
+      </div>
 
         <div className="p-4 sm:p-5 flex flex-col gap-3">
           {/* Header */}
@@ -398,6 +400,5 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
           </div>
         </div>
       </motion.div>
-    </AnimatePresence>
   );
 }

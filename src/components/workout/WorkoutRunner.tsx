@@ -79,6 +79,8 @@ export function WorkoutRunner({
   const [isRestTimerOpen, setIsRestTimerOpen] = useState(false);
   const [restTimerSeconds, setRestTimerSeconds] = useState(90);
   const [restTimerExerciseName, setRestTimerExerciseName] = useState('');
+  const [restTimerKey, setRestTimerKey] = useState<string>('');
+  const activeTimerSetKeyRef = useRef<string | null>(null);
 
   // Finish Workout Modal state
   const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
@@ -433,11 +435,15 @@ export function WorkoutRunner({
       setLogs: {},
     });
 
+    const setKey = `${currentKey}-${setRow.setNumber}`;
+
     if (nextCompleted) {
-      // Trigger Rest Timer
+      // Trigger Rest Timer (cancelling any currently active/expired timer and restarting anew)
       if (currentExercise.rest_seconds > 0) {
+        activeTimerSetKeyRef.current = setKey;
         setRestTimerSeconds(currentExercise.rest_seconds);
         setRestTimerExerciseName(currentExercise.name);
+        setRestTimerKey(`timer-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`);
         setIsRestTimerOpen(true);
       }
 
@@ -454,6 +460,12 @@ export function WorkoutRunner({
         is_completed: true,
       });
     } else {
+      // If uncompleting the set that initiated the currently running/open timer, close & cancel it
+      if (activeTimerSetKeyRef.current === setKey) {
+        setIsRestTimerOpen(false);
+        activeTimerSetKeyRef.current = null;
+      }
+
       // Enqueue uncompleted update
       await syncEngine.enqueueSetLog({
         id: logId,
@@ -992,12 +1004,20 @@ export function WorkoutRunner({
       </footer>
 
       {/* 6. REST TIMER OVERLAY */}
-      <RestTimer
-        isOpen={isRestTimerOpen}
-        initialSeconds={restTimerSeconds}
-        exerciseName={restTimerExerciseName}
-        onClose={() => setIsRestTimerOpen(false)}
-      />
+      <AnimatePresence mode="wait">
+        {isRestTimerOpen && (
+          <RestTimer
+            key={restTimerKey}
+            isOpen={isRestTimerOpen}
+            initialSeconds={restTimerSeconds}
+            exerciseName={restTimerExerciseName}
+            onClose={() => {
+              setIsRestTimerOpen(false);
+              activeTimerSetKeyRef.current = null;
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       {/* 7. YOUTUBE VIDEO MODAL */}
       <VideoModal
