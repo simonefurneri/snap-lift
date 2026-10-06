@@ -36,6 +36,7 @@ import {
   getNotificationPermission,
   requestNotificationPermission,
   getPushSubscription,
+  syncAdminPushSubscription,
 } from '@/lib/utils/pushNotifications';
 
 export default function ProfilePage() {
@@ -48,7 +49,6 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [pendingUsersCount, setPendingUsersCount] = useState<number | null>(null);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
   const [isTestingPush, setIsTestingPush] = useState(false);
   const [isResetAllOpen, setIsResetAllOpen] = useState(false);
@@ -69,18 +69,6 @@ export default function ProfilePage() {
       setWeightUnit(profile.weight_unit || 'kg');
       setProgressionPct((profile.progression_pct ?? 2.5).toString());
       setLoadStep((profile.load_step ?? 1.25).toString());
-
-      if (profile.is_admin) {
-        // Fetch pending count
-        fetch('/api/admin/users')
-          .then((res) => (res.ok ? res.json() : null))
-          .then((data) => {
-            if (data && typeof data.totalPending === 'number') {
-              setPendingUsersCount(data.totalPending);
-            }
-          })
-          .catch(() => {});
-      }
     }
   }, [profile]);
 
@@ -99,6 +87,9 @@ export default function ProfilePage() {
     setNotificationPermission(perm);
     if (perm === 'granted') {
       const sub = await getPushSubscription();
+      if (profile?.is_admin) {
+        syncAdminPushSubscription();
+      }
       if (sub) {
         showToast('Notifiche push attivate e collegate con successo!');
       } else {
@@ -116,6 +107,9 @@ export default function ProfilePage() {
       if (!sub) {
         await requestNotificationPermission();
         sub = await getPushSubscription();
+      }
+      if (profile?.is_admin) {
+        syncAdminPushSubscription();
       }
       if (!sub) {
         showToast('Nessuna sottoscrizione attiva. Assicurati che l\'app sia installata su schermata Home.');
@@ -258,18 +252,6 @@ export default function ProfilePage() {
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3 shrink-0 pl-1">
-              {typeof pendingUsersCount === 'number' && (
-                <span
-                  className={cn(
-                    'inline-flex items-center justify-center px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-black shadow-xs shrink-0 whitespace-nowrap leading-none',
-                    pendingUsersCount > 0
-                      ? 'bg-amber-500 text-white animate-pulse'
-                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700'
-                  )}
-                >
-                  {pendingUsersCount > 0 ? `${pendingUsersCount} in attesa` : 'Nessuno in attesa'}
-                </span>
-              )}
               <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-400 group-hover:text-emerald-500 group-hover:translate-x-0.5 transition-all shrink-0" />
             </div>
           </Link>

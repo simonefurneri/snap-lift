@@ -1,5 +1,10 @@
 import { sendWebPush, PushNotificationPayload } from './webPush';
 import type { PushSubscription } from 'web-push';
+import {
+  saveAdminSubscription,
+  getAllAdminSubscriptions,
+  removeExpiredAdminSubscription,
+} from './adminPushStore';
 
 interface ScheduledPush {
   scheduleId: string;
@@ -39,6 +44,48 @@ const activeSchedules = globalStore.__snaplift_active_schedules;
 const latestScheduleByTimer = globalStore.__snaplift_timer_latest_schedule;
 const latestScheduleByEndpoint = globalStore.__snaplift_endpoint_latest_schedule;
 const cancelledTimers = globalStore.__snaplift_cancelled_timers;
+
+/**
+ * Register or refresh an admin's push subscription
+ */
+export async function registerAdminSubscription(adminId: string, subscription: PushSubscription): Promise<void> {
+  await saveAdminSubscription(adminId, subscription);
+}
+
+/**
+ * Dispatches a push notification to all registered admin devices
+ */
+export async function notifyAdminsOfRegistration(userDisplayName: string, userEmail?: string | null): Promise<number> {
+  let sentCount = 0;
+  const payload: PushNotificationPayload = {
+    title: 'Nuova Richiesta di Registrazione 👤',
+    body: `${userDisplayName}${userEmail ? ` (${userEmail})` : ''} si è registrato e richiede approvazione.`,
+    url: '/admin/users',
+    tag: 'admin-new-user',
+  };
+
+  const adminSubs = await getAllAdminSubscriptions();
+  if (adminSubs.length === 0) {
+    console.log('[notifyAdminsOfRegistration] No registered admin subscriptions found.');
+    return 0;
+  }
+
+  const promises = adminSubs.map(async (item) => {
+    try {
+      await sendWebPush(item.subscription, payload);
+      sentCount++;
+    } catch (err: any) {
+      console.warn(`[push] Failed to send admin push to ${item.adminId}:`, err);
+      if (err.statusCode === 404 || err.statusCode === 410) {
+        await removeExpiredAdminSubscription(item.adminId, item.subscription.endpoint);
+      }
+    }
+  });
+
+  await Promise.all(promises);
+  console.log(`[notifyAdminsOfRegistration] Dispatched to ${sentCount}/${adminSubs.length} admin device(s).`);
+  return sentCount;
+}
 
 /**
  * Registers a new scheduled rest timer push.

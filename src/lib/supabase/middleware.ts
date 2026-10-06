@@ -38,6 +38,7 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
+  const isApiRoute = pathname.startsWith('/api');
   const isAuthRoute =
     pathname.startsWith('/login') ||
     pathname.startsWith('/register') ||
@@ -51,7 +52,7 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith('/sw.js') ||
     pathname.startsWith('/favicon.ico');
 
-  if (!user && !isAuthRoute && !isPublicRoute) {
+  if (!user && !isAuthRoute && !isPublicRoute && !isApiRoute) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('redirectTo', pathname);

@@ -206,21 +206,24 @@ self.addEventListener('push', (event) => {
   event.waitUntil(self.registration.showNotification(data.title, options));
 });
 
-// 6. Notification Click Event Listener (Opens or focuses the workout session)
+// 6. Notification Click Event Listener (Opens or focuses the relevant app window)
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const targetUrl = event.notification.data?.url || '/workout';
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // Focus existing workout window if available
+      // Focus existing window matching targetUrl path if available
       for (const client of windowClients) {
-        if (client.url && client.url.includes('/workout') && 'focus' in client) {
+        if (client.url && client.url.includes(targetUrl) && 'focus' in client) {
           return client.focus();
         }
       }
-      // Otherwise focus any open tab of the app
+      // Otherwise focus any open tab of the app and navigate
       if (windowClients.length > 0 && 'focus' in windowClients[0]) {
+        if ('navigate' in windowClients[0] && targetUrl) {
+          windowClients[0].navigate(targetUrl);
+        }
         return windowClients[0].focus();
       }
       // Fallback: open window

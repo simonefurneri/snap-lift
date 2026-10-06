@@ -63,6 +63,29 @@ export async function getPushSubscription(): Promise<PushSubscription | null> {
 }
 
 /**
+ * Syncs the current device push subscription to the server for admin registration alerts
+ */
+export async function syncAdminPushSubscription(): Promise<boolean> {
+  try {
+    if (!isPushSupported() || typeof window === 'undefined' || Notification.permission !== 'granted') {
+      return false;
+    }
+    const sub = await getPushSubscription();
+    if (!sub) return false;
+
+    const res = await fetch('/api/admin/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscription: sub.toJSON() }),
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn('[push] Error syncing admin push subscription:', err);
+    return false;
+  }
+}
+
+/**
  * Schedules a rest timer notification on the server.
  * This guarantees the notification will fire even when the phone is locked or another app is open.
  */

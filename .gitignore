@@ -41,5 +41,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# secrets
+# secrets & caches
 .secrets
+.admin_push_subscriptions.json

@@ -156,6 +156,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: error.message };
       }
 
+      // Notify admins that a new user registered and requires approval
+      fetch('/api/auth/notify-registration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName: fullName, email }),
+      }).catch((err) => console.warn('[auth] Could not trigger admin registration push:', err));
+
       if (data.user && !data.session) {
         return {
           error: null,

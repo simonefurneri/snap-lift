@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { planService } from '@/lib/services/planService';
+import { syncAdminPushSubscription } from '@/lib/utils/pushNotifications';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { PlanModal } from '@/components/plans/PlanModal';
 import {
@@ -30,6 +31,13 @@ export function AppLayout({ children, onOpenNewPlan }: AppLayoutProps) {
   const router = useRouter();
   const { user, profile, signOut } = useAuth();
   const [isNewPlanModalOpen, setIsNewPlanModalOpen] = useState(false);
+
+  // If user is admin and notifications are enabled, register admin push subscription
+  useEffect(() => {
+    if (profile?.is_admin) {
+      syncAdminPushSubscription();
+    }
+  }, [profile?.is_admin]);
 
   const navItems = [
     {

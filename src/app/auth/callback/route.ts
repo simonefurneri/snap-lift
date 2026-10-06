@@ -36,6 +36,14 @@ export async function GET(request: Request) {
             is_admin: false,
           };
           await supabase.from('profiles').insert(newProfile as any);
+
+          // Notify admins of new registration
+          try {
+            const { notifyAdminsOfRegistration } = await import('@/lib/server/pushScheduler');
+            await notifyAdminsOfRegistration(displayName, user.email);
+          } catch (e) {
+            console.warn('[auth/callback] Error notifying admins of registration:', e);
+          }
         }
       }
 
