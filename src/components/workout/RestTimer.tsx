@@ -266,7 +266,7 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
         stiffness: 260,
         mass: 0.8,
       }}
-      className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 sm:w-96 z-50 shadow-2xl rounded-3xl bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border border-emerald-500/30 dark:border-emerald-500/20 overflow-hidden"
+      className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] left-3 right-3 sm:left-auto sm:right-6 sm:bottom-6 sm:w-96 z-50 shadow-2xl rounded-3xl bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border border-emerald-500/30 dark:border-emerald-500/20 overflow-hidden"
     >
       {/* Top Progress bar */}
       <div className="w-full bg-slate-100 dark:bg-zinc-800 h-1.5 overflow-hidden">

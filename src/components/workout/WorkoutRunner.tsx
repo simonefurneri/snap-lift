@@ -697,7 +697,11 @@ export function WorkoutRunner({
       </div>
 
       {/* 3. MAIN WORKOUT RUNNER BODY (Scrollable central area) */}
-      <main className="flex-1 overflow-y-auto p-4 sm:p-6 max-w-3xl w-full mx-auto flex flex-col gap-5 min-h-0">
+      <main
+        className={`flex-1 overflow-y-auto p-4 sm:p-6 max-w-3xl w-full mx-auto flex flex-col gap-5 min-h-0 transition-[padding] duration-300 ${
+          isRestTimerOpen ? 'pb-48 sm:pb-36' : 'pb-6 sm:pb-8'
+        }`}
+      >
         {currentExercise ? (
           <div className="flex flex-col gap-4">
             {/* Exercise Header Card */}
