@@ -6,7 +6,14 @@
 export interface CachedWorkoutState {
   sessionId: string;
   updatedAt: string;
-  setLogs: Record<string, { weight: number; reps: number; setNumber: number; exerciseName: string; exerciseId?: string | null; isCompleted?: boolean }>;
+  setLogs?: Record<string, { weight: number; reps: number; setNumber: number; exerciseName: string; exerciseId?: string | null; isCompleted?: boolean }>;
+  exerciseSetsMap?: Record<string, Array<{
+    setNumber: number;
+    weight: string;
+    reps: string;
+    isCompleted: boolean;
+    savedLogId?: string;
+  }>>;
 }
 
 export const offlineSync = {

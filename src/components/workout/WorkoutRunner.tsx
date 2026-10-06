@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { workoutService, PreviousExerciseHistory } from '@/lib/services/workoutService';
+import { planService } from '@/lib/services/planService';
 import { offlineSync } from '@/lib/services/offlineSync';
 import { offlineDb } from '@/lib/services/offlineDb';
 import { syncEngine } from '@/lib/services/syncEngine';
@@ -86,6 +87,13 @@ export function WorkoutRunner({
   const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
   const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
+  const [isSetChangesModalOpen, setIsSetChangesModalOpen] = useState(false);
+  const [changedExercises, setChangedExercises] = useState<Array<{
+    exerciseId: string;
+    exerciseName: string;
+    originalSets: number;
+    newSets: number;
+  }>>([]);
 
   // Workout duration stopwatch
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -162,8 +170,16 @@ export function WorkoutRunner({
     };
   }, [session.started_at]);
 
-  // 2. Initialize sets state from existing logs & exercise definitions
+  // 2. Initialize sets state from local cache or existing logs & exercise definitions
   useEffect(() => {
+    // Check if we have cached sets in localStorage for this session
+    const cachedState = offlineSync.getWorkoutLocally(session.id);
+    if (cachedState?.exerciseSetsMap && Object.keys(cachedState.exerciseSetsMap).length > 0) {
+      // Re-hydrate directly from cached sets
+      setExerciseSetsMap(cachedState.exerciseSetsMap);
+      return;
+    }
+
     const setsMap: Record<string, SetRowState[]> = {};
 
     exercises.forEach((ex) => {
@@ -198,7 +214,7 @@ export function WorkoutRunner({
     });
 
     setExerciseSetsMap(setsMap);
-  }, [exercises, initialSetLogs]);
+  }, [exercises, initialSetLogs, session.id]);
 
   // 3. Fetch previous session history for all exercises in this day
   useEffect(() => {
@@ -299,6 +315,15 @@ export function WorkoutRunner({
     [session.id, session.user_id]
   );
 
+  // Helper to persist sets state in localStorage cache
+  const persistSetsLocally = (updatedMap: Record<string, SetRowState[]>) => {
+    offlineSync.saveWorkoutLocally(session.id, {
+      sessionId: session.id,
+      updatedAt: new Date().toISOString(),
+      exerciseSetsMap: updatedMap,
+    });
+  };
+
   // Update a set row's value
   const handleUpdateSet = (index: number, field: 'weight' | 'reps', value: string) => {
     if (!currentKey || !currentExercise) return;
@@ -327,7 +352,9 @@ export function WorkoutRunner({
           savedLogId: logId,
         };
       }
-      return { ...prev, [currentKey]: list };
+      const updated = { ...prev, [currentKey]: list };
+      persistSetsLocally(updated);
+      return updated;
     });
 
     // If this set is ALREADY confirmed with the checkmark/pallino, auto-sync the new value
@@ -396,7 +423,9 @@ export function WorkoutRunner({
           }
         });
       }
-      return { ...prev, [currentKey]: list };
+      const updated = { ...prev, [currentKey]: list };
+      persistSetsLocally(updated);
+      return updated;
     });
   };
 
@@ -425,14 +454,9 @@ export function WorkoutRunner({
           reps: setRow.reps || (nextCompleted ? repsNum.toString() : ''),
         };
       }
-      return { ...prev, [currentKey]: list };
-    });
-
-    // Save to local cache & active session state
-    offlineSync.saveWorkoutLocally(session.id, {
-      sessionId: session.id,
-      updatedAt: new Date().toISOString(),
-      setLogs: {},
+      const updated = { ...prev, [currentKey]: list };
+      persistSetsLocally(updated);
+      return updated;
     });
 
     const setKey = `${currentKey}-${setRow.setNumber}`;
@@ -494,7 +518,9 @@ export function WorkoutRunner({
         reps: '',
         isCompleted: false,
       });
-      return { ...prev, [currentKey]: list };
+      const updated = { ...prev, [currentKey]: list };
+      persistSetsLocally(updated);
+      return updated;
     });
   };
 
@@ -518,7 +544,9 @@ export function WorkoutRunner({
     setExerciseSetsMap((prev) => {
       const list = [...(prev[currentKey] || [])];
       list.pop();
-      return { ...prev, [currentKey]: list };
+      const updated = { ...prev, [currentKey]: list };
+      persistSetsLocally(updated);
+      return updated;
     });
   };
 
@@ -585,16 +613,68 @@ export function WorkoutRunner({
       // 3. Process the sync queue immediately to ensure Supabase receives all upserts
       await syncEngine.processQueue();
 
-      // 4. Mark session completed and clean local active state
+      // 4. Check if any exercises have changed set count compared to original plan
+      const changed: Array<{
+        exerciseId: string;
+        exerciseName: string;
+        originalSets: number;
+        newSets: number;
+      }> = [];
+
+      exercises.forEach((ex) => {
+        const exKey = ex.name.trim();
+        const currentCount = exerciseSetsMap[exKey]?.length || 0;
+        const originalCount = ex.sets;
+        if (ex.id && currentCount > 0 && currentCount !== originalCount) {
+          changed.push({
+            exerciseId: ex.id,
+            exerciseName: ex.name,
+            originalSets: originalCount,
+            newSets: currentCount,
+          });
+        }
+      });
+
+      // 5. Mark session completed and clean local active state
       await workoutService.finishSession(session.id);
       await offlineDb.deleteActiveSession(session.id);
       offlineSync.clearWorkoutLocally(session.id);
       setIsFinishModalOpen(false);
-      router.push('/plans');
+
+      if (changed.length > 0) {
+        setChangedExercises(changed);
+        setIsSetChangesModalOpen(true);
+        setIsFinishing(false);
+      } else {
+        router.push('/plans');
+      }
     } catch (e) {
       console.error('Error finishing session', e);
       setIsFinishing(false);
     }
+  };
+
+  // Persist set changes to the original plan
+  const handlePersistSetChanges = async () => {
+    setIsFinishing(true);
+    try {
+      await Promise.all(
+        changedExercises.map((c) =>
+          planService.updateExercise(c.exerciseId, { sets: c.newSets })
+        )
+      );
+    } catch (err) {
+      console.error('Error updating exercise set counts in plan', err);
+    } finally {
+      setIsSetChangesModalOpen(false);
+      router.push('/plans');
+    }
+  };
+
+  // Skip persisting set changes to the original plan
+  const handleSkipSetChanges = () => {
+    setIsSetChangesModalOpen(false);
+    router.push('/plans');
   };
 
   // Cancel / Discard Workout
@@ -1109,6 +1189,68 @@ export function WorkoutRunner({
         onConfirm={handleConfirmCancelWorkout}
         onClose={() => setIsCancelConfirmOpen(false)}
       />
+
+      {/* 10. PERSIST SET CHANGES TO PLAN MODAL */}
+      {isSetChangesModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl flex flex-col gap-4 text-center"
+          >
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 mx-auto flex items-center justify-center shadow-lg shadow-emerald-500/10">
+              <Sparkles className="w-7 h-7" />
+            </div>
+
+            <div>
+              <h3 className="text-xl font-black text-slate-900 dark:text-zinc-100 tracking-tight">
+                Aggiornare la scheda?
+              </h3>
+              <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1.5 leading-relaxed">
+                Durante l'allenamento hai modificato il numero di serie per alcuni esercizi. Vuoi salvare queste modifiche nella scheda originale?
+              </p>
+            </div>
+
+            {/* List of changed exercises */}
+            <div className="flex flex-col gap-2 max-h-48 overflow-y-auto p-1 text-left">
+              {changedExercises.map((c) => (
+                <div
+                  key={c.exerciseId}
+                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/60 dark:border-zinc-700/50 text-xs"
+                >
+                  <span className="font-bold text-zinc-800 dark:text-zinc-200 truncate pr-2">
+                    {c.exerciseName}
+                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0 font-mono">
+                    <span className="line-through text-zinc-400">{c.originalSets} serie</span>
+                    <span className="text-emerald-500 font-extrabold">→ {c.newSets} serie</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                type="button"
+                onClick={handlePersistSetChanges}
+                disabled={isFinishing}
+                className="w-full min-h-[48px] rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-sm shadow-md shadow-emerald-500/25 transition-all cursor-pointer"
+              >
+                {isFinishing ? 'Salvataggio...' : 'Sì, aggiorna la scheda'}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSkipSetChanges}
+                disabled={isFinishing}
+                className="w-full min-h-[44px] rounded-xl text-xs font-bold text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 cursor-pointer"
+              >
+                No, mantieni la scheda originale
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
