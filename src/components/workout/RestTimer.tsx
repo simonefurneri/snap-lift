@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, Plus, Minus, X, Bell } from 'lucide-react';
+import { Play, Pause, Plus, Minus, X, Bell, ChevronDown, ChevronUp } from 'lucide-react';
 import { triggerVibration } from '@/lib/utils/audio';
 import {
   scheduleServerPushTimer,
@@ -17,14 +17,64 @@ interface RestTimerProps {
   isOpen: boolean;
   onClose: () => void;
   exerciseName?: string;
+  isMinimized?: boolean;
+  onMinimizeChange?: (minimized: boolean) => void;
+  onHeightChange?: (height: number) => void;
 }
 
-export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: RestTimerProps) {
+export function RestTimer({
+  initialSeconds,
+  isOpen,
+  onClose,
+  exerciseName,
+  isMinimized: isMinimizedProp,
+  onMinimizeChange,
+  onHeightChange,
+}: RestTimerProps) {
   const [timeLeft, setTimeLeft] = useState(initialSeconds);
   const [totalSeconds, setTotalSeconds] = useState(initialSeconds);
   const [isRunning, setIsRunning] = useState(true);
   const [isFinished, setIsFinished] = useState(false);
-  const [permission, setPermission] = useState<NotificationPermission>('default');
+  const [permission, setPermission] = useState<NotificationPermission>(() => {
+    if (typeof window !== 'undefined') {
+      return getNotificationPermission();
+    }
+    return 'default';
+  });
+  const [isNotificationDismissed, setIsNotificationDismissed] = useState(false);
+  const [internalMinimized, setInternalMinimized] = useState(isMinimizedProp ?? false);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const isMinimized = isMinimizedProp !== undefined ? isMinimizedProp : internalMinimized;
+
+  const handleToggleMinimize = (val: boolean) => {
+    setInternalMinimized(val);
+    onMinimizeChange?.(val);
+  };
+
+  // Measure exact rendered height and report to parent for dynamic pixel-perfect clearance
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const reportHeight = () => {
+      const h = el.offsetHeight;
+      if (h > 0) onHeightChange?.(h);
+    };
+
+    reportHeight();
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const h = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
+        if (h > 0) onHeightChange?.(h);
+      }
+    });
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [onHeightChange, isMinimized]);
 
   // Precision timestamp-based timer reference
   const targetEndTimeRef = useRef<number>(Date.now() + initialSeconds * 1000);
@@ -113,6 +163,10 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
       if (remaining <= 0) {
         setIsRunning(false);
         setIsFinished(true);
+        if (internalMinimized) {
+          setInternalMinimized(false);
+          onMinimizeChange?.(false);
+        }
         if (timerRef.current) clearInterval(timerRef.current);
         if (rescheduleDebounceRef.current) {
           clearTimeout(rescheduleDebounceRef.current);
@@ -257,16 +311,16 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
 
   return (
     <motion.div
-      initial={{ y: 90, opacity: 0, scale: 0.95 }}
-      animate={{ y: 0, opacity: 1, scale: 1 }}
-      exit={{ y: 90, opacity: 0, scale: 0.95 }}
-      transition={{
-        type: 'spring',
-        damping: 28,
-        stiffness: 260,
-        mass: 0.8,
+      ref={containerRef}
+      layout
+      transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+      style={{
+        WebkitBackfaceVisibility: 'hidden',
+        backfaceVisibility: 'hidden',
+        transform: 'translate3d(0, 0, 0)',
+        willChange: 'transform, height',
       }}
-      className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] left-3 right-3 sm:left-auto sm:right-6 sm:bottom-6 sm:w-96 z-50 shadow-2xl rounded-3xl bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border border-emerald-500/30 dark:border-emerald-500/20 overflow-hidden"
+      className="w-full relative rounded-2xl sm:rounded-3xl bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border border-emerald-500/30 dark:border-emerald-500/20 overflow-hidden"
     >
       {/* Top Progress bar */}
       <div className="w-full bg-slate-100 dark:bg-zinc-800 h-1.5 overflow-hidden">
@@ -276,12 +330,110 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
         />
       </div>
 
-        <div className="p-4 sm:p-5 flex flex-col gap-3">
+      <AnimatePresence mode="popLayout" initial={false}>
+        {isMinimized ? (
+          /* MINIMIZED BAR: Sleek, unobtrusive bottom bar */
+          <motion.div
+            key="minimized"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
+            onClick={() => handleToggleMinimize(false)}
+            className="w-full px-3.5 py-2.5 flex items-center justify-between gap-2.5 cursor-pointer select-none"
+          >
+          {/* Left: Indicator + exercise name + time */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div
+              className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                isFinished
+                  ? 'bg-red-500 animate-ping'
+                  : isRunning
+                  ? 'bg-emerald-500 animate-pulse'
+                  : 'bg-amber-500'
+              }`}
+            />
+            <div className="flex items-baseline gap-1.5 min-w-0">
+              <span
+                className={`text-lg font-black tracking-tight tabular-nums ${
+                  isFinished
+                    ? 'text-red-500'
+                    : 'text-slate-900 dark:text-zinc-100'
+                }`}
+              >
+                {formatTime(timeLeft)}
+              </span>
+              {exerciseName && (
+                <span className="text-xs text-zinc-400 truncate max-w-[110px] hidden xs:inline">
+                  {exerciseName}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Right: Quick controls */}
+          <div
+            className="flex items-center gap-1.5 shrink-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={togglePlayPause}
+              className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 hover:bg-slate-200 dark:hover:bg-zinc-700 flex items-center justify-center transition-colors cursor-pointer"
+              title={isRunning ? 'Pausa' : 'Avvia'}
+            >
+              {isRunning ? (
+                <Pause className="w-3.5 h-3.5 fill-current" />
+              ) : (
+                <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => addTime(30)}
+              className="px-2 py-1 rounded-xl bg-slate-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold text-xs hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
+              title="+30 secondi"
+            >
+              +30s
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleToggleMinimize(false)}
+              className="p-1.5 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              title="Espandi timer"
+              aria-label="Espandi timer"
+            >
+              <ChevronUp className="w-4 h-4" />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleClose}
+              className="p-1.5 rounded-xl text-zinc-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              title="Chiudi timer"
+              aria-label="Chiudi timer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </motion.div>
+      ) : (
+        /* EXPANDED CARD: Full timer controls and presets */
+        <motion.div
+          key="expanded"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
+          className="w-full p-3.5 sm:p-5 flex flex-col gap-2.5 sm:gap-3"
+        >
           {/* Header */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <div
-                className={`w-2.5 h-2.5 rounded-full ${
+                className={`w-2.5 h-2.5 rounded-full shrink-0 ${
                   isFinished
                     ? 'bg-red-500 animate-ping'
                     : isRunning
@@ -289,44 +441,64 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
                     : 'bg-amber-500'
                 }`}
               />
-              <span className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+              <span className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 truncate">
                 {isFinished ? 'Recupero Terminato!' : 'Timer Recupero'}
               </span>
             </div>
 
-            {exerciseName && (
-              <span className="text-xs text-zinc-400 truncate max-w-[140px] text-right font-medium">
-                {exerciseName}
-              </span>
-            )}
+            <div className="flex items-center gap-1 shrink-0">
+              {exerciseName && (
+                <span className="text-xs text-zinc-400 truncate max-w-[120px] text-right font-medium mr-1 hidden xs:inline">
+                  {exerciseName}
+                </span>
+              )}
 
-            <button
-              type="button"
-              onClick={handleClose}
-              className="p-1 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors ml-1 cursor-pointer"
-              aria-label="Chiudi timer"
-            >
-              <X className="w-4 h-4" />
-            </button>
+              <button
+                type="button"
+                onClick={() => handleToggleMinimize(true)}
+                className="p-1.5 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                title="Riduci ad icona"
+                aria-label="Riduci timer ad icona"
+              >
+                <ChevronDown className="w-4 h-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={handleClose}
+                className="p-1.5 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                aria-label="Chiudi timer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
-          {/* Permission Prompt Banner if not granted */}
-          {permission !== 'granted' && (
-            <button
-              type="button"
-              onClick={handleEnableNotifications}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs font-bold transition-all hover:bg-amber-500/20 cursor-pointer"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <Bell className="w-4 h-4 text-amber-500 shrink-0" />
-                <span className="truncate">Attiva notifiche per schermo bloccato</span>
-              </div>
-              <span className="text-[11px] font-extrabold underline shrink-0 pl-1">Consenti</span>
-            </button>
+          {/* Permission Prompt Banner if not granted and not dismissed */}
+          {permission !== 'granted' && !isNotificationDismissed && (
+            <div className="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs font-bold">
+              <button
+                type="button"
+                onClick={handleEnableNotifications}
+                className="flex items-center gap-2 min-w-0 flex-1 text-left cursor-pointer hover:opacity-85"
+              >
+                <Bell className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span className="truncate text-[11px]">Notifiche per schermo bloccato</span>
+                <span className="text-[10px] font-extrabold underline shrink-0">Consenti</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsNotificationDismissed(true)}
+                className="p-1 text-amber-600/70 hover:text-amber-700 dark:hover:text-amber-200 transition-colors cursor-pointer shrink-0"
+                title="Chiudi avviso"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
           )}
 
           {/* Time Display & Quick Controls */}
-          <div className="flex items-center justify-between my-1">
+          <div className="flex items-center justify-between my-0.5 sm:my-1">
             <div className="flex items-baseline gap-1.5">
               <span
                 className={`text-4xl sm:text-5xl font-black tracking-tight tabular-nums ${
@@ -398,7 +570,9 @@ export function RestTimer({ initialSeconds, isOpen, onClose, exerciseName }: Res
               Salta
             </button>
           </div>
-        </div>
-      </motion.div>
+        </motion.div>
+      )}
+      </AnimatePresence>
+    </motion.div>
   );
 }

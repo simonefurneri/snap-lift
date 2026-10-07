@@ -78,6 +78,7 @@ export function WorkoutRunner({
 
   // Rest Timer state
   const [isRestTimerOpen, setIsRestTimerOpen] = useState(false);
+  const [isRestTimerMinimized, setIsRestTimerMinimized] = useState(false);
   const [restTimerSeconds, setRestTimerSeconds] = useState(90);
   const [restTimerExerciseName, setRestTimerExerciseName] = useState('');
   const [restTimerKey, setRestTimerKey] = useState<string>('');
@@ -95,10 +96,12 @@ export function WorkoutRunner({
     newSets: number;
   }>>([]);
 
-  // Workout duration stopwatch
+  // Workout duration stopwatch & scroll refs
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const stopwatchRef = useRef<NodeJS.Timeout | null>(null);
   const exercisesCarouselRef = useRef<HTMLDivElement>(null);
+  const mainScrollRef = useRef<HTMLElement>(null);
+  const setsTableRef = useRef<HTMLDivElement>(null);
   const syncDebounceTimersRef = useRef<Record<string, NodeJS.Timeout>>({});
 
   const weightUnit = profile?.weight_unit || 'kg';
@@ -107,6 +110,76 @@ export function WorkoutRunner({
 
   // Keep screen awake during workout session
   useWakeLock(true);
+
+  // Scroll main container to top when switching exercises
+  useEffect(() => {
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTop = 0;
+    }
+  }, [currentExerciseIndex]);
+
+  const scrollAnimationRef = useRef<number | null>(null);
+
+  // Synchronized smooth scroll running in parallel with the expansion animation
+  const startSynchronizedScroll = useCallback(() => {
+    const el = mainScrollRef.current;
+    if (!el) return;
+
+    if (scrollAnimationRef.current !== null) {
+      cancelAnimationFrame(scrollAnimationRef.current);
+      scrollAnimationRef.current = null;
+    }
+
+    const duration = 260; // ms, aligns with the drawer animation
+    const startTime = performance.now();
+    const startScroll = el.scrollTop;
+
+    const onUserTouch = () => {
+      if (scrollAnimationRef.current !== null) {
+        cancelAnimationFrame(scrollAnimationRef.current);
+        scrollAnimationRef.current = null;
+      }
+    };
+
+    el.addEventListener('touchstart', onUserTouch, { passive: true, once: true });
+    el.addEventListener('wheel', onUserTouch, { passive: true, once: true });
+
+    const step = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(1, elapsed / duration);
+      // Apple cubic ease-out curve [0.16, 1, 0.3, 1]
+      const ease = 1 - Math.pow(1 - progress, 3);
+
+      const targetScroll = Math.max(0, el.scrollHeight - el.clientHeight);
+      el.scrollTop = startScroll + (targetScroll - startScroll) * ease;
+
+      if (progress < 1) {
+        scrollAnimationRef.current = requestAnimationFrame(step);
+      } else {
+        scrollAnimationRef.current = null;
+      }
+    };
+
+    scrollAnimationRef.current = requestAnimationFrame(step);
+  }, []);
+
+  const prevOpenRef = useRef(false);
+  const prevMinimizedRef = useRef(false);
+
+  // Smooth scroll to bottom synchronized with RestTimer open or maximize
+  useEffect(() => {
+    const wasOpen = prevOpenRef.current;
+    const wasMinimized = prevMinimizedRef.current;
+    prevOpenRef.current = isRestTimerOpen;
+    prevMinimizedRef.current = isRestTimerMinimized;
+
+    if (!isRestTimerOpen || isRestTimerMinimized) return;
+
+    // Start synchronized scroll in parallel with drawer expansion
+    if (!wasOpen || wasMinimized) {
+      startSynchronizedScroll();
+    }
+  }, [isRestTimerOpen, isRestTimerMinimized, restTimerKey, startSynchronizedScroll]);
 
   // Auto-scroll carousel to active exercise when currentExerciseIndex changes
   useEffect(() => {
@@ -778,9 +851,8 @@ export function WorkoutRunner({
 
       {/* 3. MAIN WORKOUT RUNNER BODY (Scrollable central area) */}
       <main
-        className={`flex-1 overflow-y-auto p-4 sm:p-6 max-w-3xl w-full mx-auto flex flex-col gap-5 min-h-0 transition-[padding] duration-300 ${
-          isRestTimerOpen ? 'pb-48 sm:pb-36' : 'pb-6 sm:pb-8'
-        }`}
+        ref={mainScrollRef}
+        className="flex-1 overflow-y-auto p-4 sm:p-6 max-w-3xl w-full mx-auto flex flex-col gap-4 min-h-0 pb-4 sm:pb-6"
       >
         {currentExercise ? (
           <div className="flex flex-col gap-4">
@@ -904,7 +976,10 @@ export function WorkoutRunner({
             </div>
 
             {/* 4. SETS INPUT TABLE / ROWS */}
-            <div className="bg-white dark:bg-zinc-900/90 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-4 sm:p-6 shadow-sm flex flex-col gap-3">
+            <div
+              ref={setsTableRef}
+              className="bg-white dark:bg-zinc-900/90 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-4 sm:p-6 shadow-sm flex flex-col gap-3"
+            >
               <div className="grid grid-cols-12 gap-2 text-[11px] font-bold uppercase tracking-wider text-zinc-400 px-2 pb-1 border-b border-slate-100 dark:border-zinc-800">
                 <span className="col-span-2 sm:col-span-2 text-center">Serie</span>
                 <span className="col-span-3 sm:col-span-3 text-center hidden sm:block">
@@ -927,9 +1002,8 @@ export function WorkoutRunner({
                     : '';
 
                 return (
-                  <motion.div
+                  <div
                     key={setRow.setNumber}
-                    layout
                     className={`grid grid-cols-12 gap-2 items-center p-2 rounded-2xl transition-colors ${
                       setRow.isCompleted
                         ? 'bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30'
@@ -1014,7 +1088,7 @@ export function WorkoutRunner({
                         <CheckCircle2 className="w-5 h-5 fill-current" />
                       </button>
                     </div>
-                  </motion.div>
+                  </div>
                 );
               })}
 
@@ -1041,11 +1115,46 @@ export function WorkoutRunner({
                 )}
               </div>
             </div>
+
           </div>
         ) : (
           <div className="p-8 text-center text-zinc-400">Nessun esercizio presente in questo giorno.</div>
         )}
       </main>
+
+      {/* 4. DOCKED REST TIMER */}
+      <AnimatePresence initial={false}>
+        {isRestTimerOpen && (
+          <motion.div
+            layout
+            initial={{ opacity: 0, y: 24, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: 'auto' }}
+            exit={{ opacity: 0, y: 24, height: 0 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            style={{
+              WebkitBackfaceVisibility: 'hidden',
+              backfaceVisibility: 'hidden',
+              transform: 'translate3d(0, 0, 0)',
+              willChange: 'transform, height, opacity',
+            }}
+            className="shrink-0 px-3 pb-2 sm:px-6 max-w-3xl w-full mx-auto z-30 overflow-hidden"
+          >
+            <RestTimer
+              key={restTimerKey}
+              isOpen={isRestTimerOpen}
+              initialSeconds={restTimerSeconds}
+              exerciseName={restTimerExerciseName}
+              isMinimized={isRestTimerMinimized}
+              onMinimizeChange={setIsRestTimerMinimized}
+              onClose={() => {
+                setIsRestTimerOpen(false);
+                setIsRestTimerMinimized(false);
+                activeTimerSetKeyRef.current = null;
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* 5. BOTTOM NAVIGATION BAR (Previous / Next Exercise Stepper) */}
       <footer className="sticky bottom-0 z-40 shrink-0 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-zinc-800 px-4 sm:px-6 md:px-8 pt-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom,0px))] sm:py-4">
@@ -1086,22 +1195,6 @@ export function WorkoutRunner({
           )}
         </div>
       </footer>
-
-      {/* 6. REST TIMER OVERLAY */}
-      <AnimatePresence mode="wait">
-        {isRestTimerOpen && (
-          <RestTimer
-            key={restTimerKey}
-            isOpen={isRestTimerOpen}
-            initialSeconds={restTimerSeconds}
-            exerciseName={restTimerExerciseName}
-            onClose={() => {
-              setIsRestTimerOpen(false);
-              activeTimerSetKeyRef.current = null;
-            }}
-          />
-        )}
-      </AnimatePresence>
 
       {/* 7. YOUTUBE VIDEO MODAL */}
       <VideoModal
