@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { offlineDb, OfflineActiveSession } from '@/lib/services/offlineDb';
 import { Dumbbell, Play, X } from 'lucide-react';
+import { truncateDayName } from '@/lib/utils/cn';
 
 export function ActiveWorkoutBanner() {
   const [activeSession, setActiveSession] = useState<OfflineActiveSession | null>(null);
@@ -47,7 +48,10 @@ export function ActiveWorkoutBanner() {
         </div>
         <div className="min-w-0">
           <p className="font-extrabold truncate">
-            Hai un allenamento in corso: <span className="underline decoration-white/50">{activeSession.day_name}</span>
+            Hai un allenamento in corso:{' '}
+            <span className="underline decoration-white/50" title={activeSession.day_name}>
+              {truncateDayName(activeSession.day_name, 22)}
+            </span>
           </p>
           <p className="text-[11px] text-white/80 truncate">
             Tocca per riprendere la sessione da dove l'hai lasciata.

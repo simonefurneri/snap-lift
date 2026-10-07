@@ -93,11 +93,12 @@ function SortableDayPill({
       <button
         type="button"
         onClick={onSelect}
-        className="min-h-[44px] px-2 py-2 text-xs sm:text-sm font-semibold flex items-center gap-1.5 cursor-pointer"
+        title={day.name}
+        className="min-h-[44px] px-2 py-2 text-xs sm:text-sm font-semibold flex items-center gap-1.5 cursor-pointer max-w-[130px] xs:max-w-[160px] sm:max-w-[200px]"
       >
-        <span>{day.name}</span>
+        <span className="truncate">{day.name}</span>
         <span
-          className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+          className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
             isSelected
               ? 'bg-white/20 text-white dark:text-zinc-950 dark:bg-black/20'
               : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'

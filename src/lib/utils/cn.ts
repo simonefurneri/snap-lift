@@ -26,3 +26,14 @@ export function formatDate(dateString: string): string {
     return dateString;
   }
 }
+
+/**
+ * Truncates long day names to a clean character budget with ellipsis,
+ * especially suitable for mobile pills, tabs, and banners.
+ */
+export function truncateDayName(name?: string | null, maxLen: number = 22): string {
+  if (!name) return '';
+  const trimmed = name.trim();
+  if (trimmed.length <= maxLen) return trimmed;
+  return `${trimmed.slice(0, maxLen).trimEnd()}…`;
+}

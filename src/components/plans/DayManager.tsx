@@ -28,7 +28,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
-import { cn } from '@/lib/utils/cn';
+import { cn, truncateDayName } from '@/lib/utils/cn';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -99,12 +99,13 @@ function SortableDayTabItem({
       <button
         type="button"
         onClick={onSelect}
-        className="min-h-[44px] px-2 py-2 text-xs sm:text-sm font-semibold flex items-center gap-1.5 cursor-pointer"
+        title={day.name}
+        className="min-h-[44px] px-2 py-2 text-xs sm:text-sm font-semibold flex items-center gap-1.5 cursor-pointer max-w-[130px] xs:max-w-[160px] sm:max-w-[220px]"
       >
-        <span>{day.name}</span>
+        <span className="truncate">{day.name}</span>
         <span
           className={cn(
-            'px-1.5 py-0.5 rounded-full text-[10px] font-bold',
+            'px-1.5 py-0.5 rounded-full text-[10px] font-bold shrink-0',
             isSelected
               ? 'bg-white/20 text-white dark:text-zinc-950 dark:bg-black/20'
               : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'
@@ -468,7 +469,7 @@ export function DayManager({
           isOpen={!!dayToDelete}
           onClose={() => setDayToDelete(null)}
           title="Eliminare questo giorno?"
-          description={`Tutti gli esercizi contenuti in "${dayToDelete.name}" verranno eliminati.`}
+          description={`Tutti gli esercizi contenuti in "${truncateDayName(dayToDelete.name, 26)}" verranno eliminati.`}
           maxWidth="sm"
         >
           <div className="flex justify-end gap-2.5 pt-3">

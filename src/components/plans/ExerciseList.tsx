@@ -126,11 +126,11 @@ export function ExerciseList({
     <div className="flex flex-col gap-4">
       {/* Top Header inside day */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h3 className="font-bold text-base sm:text-lg text-zinc-900 dark:text-zinc-100">
+        <div className="min-w-0 flex-1">
+          <h3 className="font-bold text-base sm:text-lg text-zinc-900 dark:text-zinc-100 break-words">
             {dayName}
           </h3>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
             {exercises.length === 0
               ? 'Nessun esercizio presente'
               : `${exercises.length} ${exercises.length === 1 ? 'esercizio configurato' : 'esercizi configurati'}`}

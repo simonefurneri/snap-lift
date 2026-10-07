@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { PlanWithDetails } from '@/types/database.types';
-import { formatDate } from '@/lib/utils/cn';
+import { formatDate, truncateDayName } from '@/lib/utils/cn';
 import {
   Calendar,
   Dumbbell,
@@ -151,9 +151,11 @@ export function PlanCard({
             {plan.days.map((day) => (
               <span
                 key={day.id}
-                className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-slate-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-slate-200/60 dark:border-zinc-700/40"
+                title={day.name}
+                className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-slate-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-slate-200/60 dark:border-zinc-700/40 inline-flex items-center gap-1 max-w-[140px] xs:max-w-[170px] sm:max-w-[210px]"
               >
-                {day.name} ({day.exercises?.length || 0})
+                <span className="truncate">{day.name}</span>
+                <span className="shrink-0 text-zinc-400">({day.exercises?.length || 0})</span>
               </span>
             ))}
           </div>

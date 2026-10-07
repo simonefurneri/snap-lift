@@ -13,6 +13,7 @@ import { SyncIndicator } from '@/components/pwa/SyncIndicator';
 import { calculateProgression, ProgressionResult } from '@/lib/progression';
 import { VideoModal } from '@/components/ui/VideoModal';
 import { RestTimer } from '@/components/workout/RestTimer';
+import { cn, truncateDayName } from '@/lib/utils/cn';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import {
   WorkoutSession,
@@ -65,6 +66,7 @@ export function WorkoutRunner({
   const [session, setSession] = useState<WorkoutSession>(initialSession);
   const [exercises, setExercises] = useState<Exercise[]>(initialDay.exercises || []);
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
+  const [isTitleExpanded, setIsTitleExpanded] = useState(false);
 
   // Active workout state: Map of exerciseId/exerciseName -> SetRowState[]
   const [exerciseSetsMap, setExerciseSetsMap] = useState<Record<string, SetRowState[]>>({});
@@ -785,11 +787,23 @@ export function WorkoutRunner({
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <div className="min-w-0">
+            <div
+              className="min-w-0 cursor-pointer select-none"
+              onClick={() => setIsTitleExpanded((prev) => !prev)}
+              title="Tocca per mostrare il nome completo"
+            >
               <span className="block text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 truncate">
                 Allenamento in corso
               </span>
-              <h1 className="text-xs sm:text-base font-extrabold truncate text-zinc-900 dark:text-zinc-100">
+              <h1
+                className={cn(
+                  'text-xs sm:text-base font-extrabold text-zinc-900 dark:text-zinc-100 transition-all',
+                  isTitleExpanded
+                    ? 'break-words max-w-full'
+                    : 'truncate max-w-[170px] xs:max-w-[220px] sm:max-w-md'
+                )}
+                title={`${initialDay.name}${initialPlan ? ` — ${initialPlan.name}` : ''}`}
+              >
                 {initialDay.name} {initialPlan ? `— ${initialPlan.name}` : ''}
               </h1>
             </div>
@@ -1221,7 +1235,7 @@ export function WorkoutRunner({
                 Grande Lavoro!
               </h3>
               <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-                Hai completato la sessione di {initialDay.name}. Ecco il riepilogo dei tuoi numeri:
+                Hai completato la sessione di <span className="font-semibold text-zinc-900 dark:text-zinc-100">{truncateDayName(initialDay.name, 28)}</span>. Ecco il riepilogo dei tuoi numeri:
               </p>
             </div>
 
