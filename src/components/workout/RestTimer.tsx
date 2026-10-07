@@ -8,7 +8,6 @@ import {
   scheduleServerPushTimer,
   cancelServerPushTimer,
   closeRestTimerNotifications,
-  showLocalNotification,
   requestNotificationPermission,
   getNotificationPermission,
 } from '@/lib/utils/pushNotifications';
@@ -177,15 +176,11 @@ export function RestTimer({
           rescheduleDebounceRef.current = null;
         }
 
-        // Multi-sensory feedback: vibration + audio chime + local notification
+        // In-app sensory feedback: haptics + audio chime
+        // The system notification banner is dispatched by the server via Web Push
+        // at this exact second to prevent duplicate notification banners.
         triggerVibration([300, 150, 300, 150, 500]);
         playTimerCompleteBeep();
-        showLocalNotification('Recupero Terminato! ⏰', {
-          body: exerciseName
-            ? `È ora della prossima serie per ${exerciseName}!`
-            : 'Il tempo di recupero è finito, ricomincia la serie!',
-          tag: 'rest-timer',
-        });
       }
     };
 
