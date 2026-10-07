@@ -114,6 +114,13 @@ export function InstallPwaModal() {
         title="Installa SnapLift"
         description="Aggiungi l'app alla schermata home del tuo dispositivo per aprirla a schermo intero senza barra del browser."
         maxWidth="md"
+        footer={
+          <div className="flex justify-end">
+            <Button variant="ghost" size="sm" onClick={() => setIsOpen(false)}>
+              Chiudi
+            </Button>
+          </div>
+        }
       >
         <div className="flex flex-col gap-5 py-2">
           {isIOS ? (
@@ -178,12 +185,6 @@ export function InstallPwaModal() {
               )}
             </div>
           )}
-
-          <div className="flex justify-end pt-2">
-            <Button variant="ghost" size="sm" onClick={() => setIsOpen(false)}>
-              Chiudi
-            </Button>
-          </div>
         </div>
       </Modal>
     </>

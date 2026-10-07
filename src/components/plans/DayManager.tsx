@@ -360,6 +360,16 @@ export function DayManager({
           title={`Opzioni: ${activeManageDay.name}`}
           description={`${activeManageDay.exercises?.length || 0} esercizi in questa sessione`}
           maxWidth="sm"
+          footer={
+            <Button
+              variant="secondary"
+              size="md"
+              className="w-full"
+              onClick={() => setActiveManageDay(null)}
+            >
+              Annulla
+            </Button>
+          }
         >
           <div className="flex flex-col gap-2.5 pt-1">
             <button
@@ -388,17 +398,6 @@ export function DayManager({
               <Trash2 className="w-4 h-4 text-red-500" />
               <span>Elimina Giorno</span>
             </button>
-
-            <div className="pt-2">
-              <Button
-                variant="secondary"
-                size="md"
-                className="w-full"
-                onClick={() => setActiveManageDay(null)}
-              >
-                Annulla
-              </Button>
-            </div>
           </div>
         </Modal>
       )}
@@ -409,16 +408,9 @@ export function DayManager({
         onClose={() => setIsAddModalOpen(false)}
         title="Aggiungi Nuovo Giorno"
         description="Es: Giorno A - Spinta, Push, Gambe & Addome, Full Body..."
-      >
-        <form onSubmit={handleAddSubmit} className="flex flex-col gap-4">
-          <Input
-            label="Nome del Giorno *"
-            placeholder="Es: Giorno C - Gambe e Core"
-            value={newDayName}
-            onChange={(e) => setNewDayName(e.target.value)}
-            required
-          />
-          <div className="flex justify-end gap-2.5 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+        onSubmit={handleAddSubmit}
+        footer={
+          <div className="flex justify-end gap-2.5">
             <Button
               type="button"
               variant="secondary"
@@ -431,7 +423,17 @@ export function DayManager({
               Aggiungi
             </Button>
           </div>
-        </form>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <Input
+            label="Nome del Giorno *"
+            placeholder="Es: Giorno C - Gambe e Core"
+            value={newDayName}
+            onChange={(e) => setNewDayName(e.target.value)}
+            required
+          />
+        </div>
       </Modal>
 
       {/* Rename Day Modal */}
@@ -439,15 +441,9 @@ export function DayManager({
         isOpen={!!dayToRename}
         onClose={() => setDayToRename(null)}
         title="Rinomina Giorno"
-      >
-        <form onSubmit={handleRenameSubmit} className="flex flex-col gap-4">
-          <Input
-            label="Nome del Giorno *"
-            value={renameValue}
-            onChange={(e) => setRenameValue(e.target.value)}
-            required
-          />
-          <div className="flex justify-end gap-2.5 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+        onSubmit={handleRenameSubmit}
+        footer={
+          <div className="flex justify-end gap-2.5">
             <Button
               type="button"
               variant="secondary"
@@ -460,7 +456,16 @@ export function DayManager({
               Salva
             </Button>
           </div>
-        </form>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <Input
+            label="Nome del Giorno *"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            required
+          />
+        </div>
       </Modal>
 
       {/* Delete Day Confirmation */}
@@ -471,25 +476,30 @@ export function DayManager({
           title="Eliminare questo giorno?"
           description={`Tutti gli esercizi contenuti in "${truncateDayName(dayToDelete.name, 26)}" verranno eliminati.`}
           maxWidth="sm"
+          footer={
+            <div className="flex justify-end gap-2.5">
+              <Button
+                type="button"
+                variant="secondary"
+                size="md"
+                onClick={() => setDayToDelete(null)}
+              >
+                Annulla
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                size="md"
+                onClick={handleDeleteConfirm}
+                isLoading={loading}
+              >
+                Elimina Definitivamente
+              </Button>
+            </div>
+          }
         >
-          <div className="flex justify-end gap-2.5 pt-3">
-            <Button
-              type="button"
-              variant="secondary"
-              size="md"
-              onClick={() => setDayToDelete(null)}
-            >
-              Annulla
-            </Button>
-            <Button
-              type="button"
-              variant="danger"
-              size="md"
-              onClick={handleDeleteConfirm}
-              isLoading={loading}
-            >
-              Elimina Definitivamente
-            </Button>
+          <div className="text-xs text-zinc-500 dark:text-zinc-400 py-1">
+            Questa operazione non può essere annullata.
           </div>
         </Modal>
       )}

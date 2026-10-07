@@ -67,8 +67,25 @@ export function PlanModal({
           ? 'Aggiorna il nome o le note generali di questa scheda'
           : 'Crea una nuova scheda per organizzare i tuoi giorni di allenamento'
       }
+      onSubmit={handleSubmit}
+      footer={
+        <div className="flex justify-end gap-2.5">
+          <Button
+            type="button"
+            variant="secondary"
+            size="md"
+            onClick={onClose}
+            disabled={loading}
+          >
+            Annulla
+          </Button>
+          <Button type="submit" variant="primary" size="md" isLoading={loading}>
+            {planToEdit ? 'Salva Modifiche' : 'Crea Scheda'}
+          </Button>
+        </div>
+      }
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4">
         <Input
           label="Nome della Scheda"
           placeholder="Es: Ipertrofia Push/Pull/Legs, Forza 5x5..."
@@ -85,22 +102,7 @@ export function PlanModal({
           onChange={(e) => setNotes(e.target.value)}
           rows={3}
         />
-
-        <div className="flex justify-end gap-2.5 pt-3 border-t border-zinc-100 dark:border-zinc-800">
-          <Button
-            type="button"
-            variant="secondary"
-            size="md"
-            onClick={onClose}
-            disabled={loading}
-          >
-            Annulla
-          </Button>
-          <Button type="submit" variant="primary" size="md" isLoading={loading}>
-            {planToEdit ? 'Salva Modifiche' : 'Crea Scheda'}
-          </Button>
-        </div>
-      </form>
+      </div>
     </Modal>
   );
 }

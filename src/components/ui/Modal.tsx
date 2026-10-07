@@ -11,9 +11,12 @@ export interface ModalProps {
   title?: string;
   description?: string;
   children: React.ReactNode;
+  footer?: React.ReactNode;
+  onSubmit?: (e: React.FormEvent) => void;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full';
   showCloseButton?: boolean;
   contentClassName?: string;
+  footerClassName?: string;
   className?: string;
   zIndex?: string;
 }
@@ -24,9 +27,12 @@ export function Modal({
   title,
   description,
   children,
+  footer,
+  onSubmit,
   maxWidth = 'md',
   showCloseButton = true,
   contentClassName,
+  footerClassName,
   className,
   zIndex = 'z-50',
 }: ModalProps) {
@@ -128,23 +134,23 @@ export function Modal({
           className
         )}
       >
-        {/* Mobile Drag/Grab Bar */}
+        {/* Mobile Drag/Grab Bar - Anchored */}
         <div
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
-          className="sm:hidden flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing touch-none select-none"
+          className="sm:hidden flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing touch-none select-none shrink-0"
         >
           <div className="w-12 h-1.5 rounded-full bg-zinc-300 dark:bg-zinc-700" />
         </div>
 
-        {/* Header */}
+        {/* Header - Anchored */}
         {(title || showCloseButton) && (
           <div
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
-            className="flex items-center justify-between px-5 pt-3 pb-3 sm:py-4 border-b border-zinc-100 dark:border-zinc-800/80 select-none"
+            className="flex items-center justify-between px-5 pt-3 pb-3 sm:py-4 border-b border-zinc-100 dark:border-zinc-800/80 select-none shrink-0"
           >
             <div>
               {title && (
@@ -161,7 +167,7 @@ export function Modal({
             {showCloseButton && (
               <button
                 onClick={onClose}
-                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
                 aria-label="Chiudi"
               >
                 <X className="w-5 h-5" />
@@ -170,10 +176,30 @@ export function Modal({
           </div>
         )}
 
-        {/* Content body */}
-        <div className={cn('p-4 sm:p-5 overflow-y-auto overflow-x-hidden flex-1', contentClassName)}>
-          {children}
-        </div>
+        {/* Central scrollable body & Anchored bottom bar */}
+        {onSubmit ? (
+          <form onSubmit={onSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div className={cn('p-4 sm:p-5 overflow-y-auto overflow-x-hidden flex-1 min-h-0', contentClassName)}>
+              {children}
+            </div>
+            {footer && (
+              <div className={cn('px-4 py-3 sm:px-5 sm:py-4 border-t border-zinc-100 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shrink-0', footerClassName)}>
+                {footer}
+              </div>
+            )}
+          </form>
+        ) : (
+          <>
+            <div className={cn('p-4 sm:p-5 overflow-y-auto overflow-x-hidden flex-1 min-h-0', contentClassName)}>
+              {children}
+            </div>
+            {footer && (
+              <div className={cn('px-4 py-3 sm:px-5 sm:py-4 border-t border-zinc-100 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shrink-0', footerClassName)}>
+                {footer}
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

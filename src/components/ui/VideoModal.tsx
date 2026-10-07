@@ -29,6 +29,13 @@ export function VideoModal({
       title={exerciseName}
       description="Video dimostrativo di esecuzione"
       maxWidth="lg"
+      footer={
+        <div className="flex justify-end">
+          <Button variant="secondary" size="md" onClick={onClose}>
+            Chiudi
+          </Button>
+        </div>
+      }
     >
       <div className="flex flex-col gap-4">
         {result.isValid && result.embedUrl ? (
@@ -65,12 +72,6 @@ export function VideoModal({
             )}
           </div>
         )}
-
-        <div className="flex justify-end pt-2">
-          <Button variant="secondary" size="md" onClick={onClose}>
-            Chiudi
-          </Button>
-        </div>
       </div>
     </Modal>
   );

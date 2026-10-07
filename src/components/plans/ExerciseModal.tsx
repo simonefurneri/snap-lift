@@ -42,9 +42,9 @@ export function ExerciseModal({
   exerciseToEdit,
 }: ExerciseModalProps) {
   const [name, setName] = useState('');
-  const [sets, setSets] = useState(3);
-  const [repsMin, setRepsMin] = useState(8);
-  const [repsMax, setRepsMax] = useState(12);
+  const [sets, setSets] = useState('3');
+  const [repsMin, setRepsMin] = useState('8');
+  const [repsMax, setRepsMax] = useState('12');
   const [restSeconds, setRestSeconds] = useState(90);
   const [techniqueNotes, setTechniqueNotes] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
@@ -56,17 +56,17 @@ export function ExerciseModal({
   useEffect(() => {
     if (exerciseToEdit) {
       setName(exerciseToEdit.name);
-      setSets(exerciseToEdit.sets);
-      setRepsMin(exerciseToEdit.reps_min);
-      setRepsMax(exerciseToEdit.reps_max);
-      setRestSeconds(exerciseToEdit.rest_seconds);
+      setSets(String(exerciseToEdit.sets ?? 3));
+      setRepsMin(String(exerciseToEdit.reps_min ?? 8));
+      setRepsMax(String(exerciseToEdit.reps_max ?? 12));
+      setRestSeconds(exerciseToEdit.rest_seconds ?? 90);
       setTechniqueNotes(exerciseToEdit.technique_notes || '');
       setVideoUrl(exerciseToEdit.video_url || '');
     } else {
       setName('');
-      setSets(3);
-      setRepsMin(8);
-      setRepsMax(12);
+      setSets('3');
+      setRepsMin('8');
+      setRepsMax('12');
       setRestSeconds(90);
       setTechniqueNotes('');
       setVideoUrl('');
@@ -83,14 +83,12 @@ export function ExerciseModal({
       return;
     }
 
-    if (sets < 1) {
-      setError('Il numero di serie deve essere almeno 1');
-      return;
-    }
-
-    if (repsMin < 0 || repsMax < 0 || repsMax < repsMin) {
-      setError('Intervallo di ripetizioni non valido (Max deve essere >= Min)');
-      return;
+    const setsNum = Math.max(1, parseInt(sets, 10) || 1);
+    const minNum = Math.max(0, parseInt(repsMin, 10) || 0);
+    let maxNum = parseInt(repsMax, 10);
+    if (isNaN(maxNum) || maxNum < minNum) {
+      maxNum = minNum;
+      setRepsMax(String(minNum));
     }
 
     if (videoUrl && !ytValidation?.isValid) {
@@ -103,9 +101,9 @@ export function ExerciseModal({
       setError(null);
       await onSubmit({
         name: name.trim(),
-        sets: Number(sets),
-        reps_min: Number(repsMin),
-        reps_max: Number(repsMax),
+        sets: setsNum,
+        reps_min: minNum,
+        reps_max: maxNum,
         rest_seconds: Number(restSeconds),
         technique_notes: techniqueNotes.trim() || null,
         video_url: videoUrl.trim() || null,
@@ -126,8 +124,25 @@ export function ExerciseModal({
         title={exerciseToEdit ? 'Modifica Esercizio' : 'Aggiungi Nuovo Esercizio'}
         description="Configura serie, ripetizioni, tempi di recupero e video tutorial"
         maxWidth="lg"
+        onSubmit={handleSubmit}
+        footer={
+          <div className="flex justify-end gap-2.5">
+            <Button
+              type="button"
+              variant="secondary"
+              size="md"
+              onClick={onClose}
+              disabled={loading}
+            >
+              Annulla
+            </Button>
+            <Button type="submit" variant="primary" size="md" isLoading={loading}>
+              {exerciseToEdit ? 'Salva Esercizio' : 'Aggiungi Esercizio'}
+            </Button>
+          </div>
+        }
       >
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4">
           {error && (
             <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-xl text-xs text-red-600 dark:text-red-400 font-medium">
               {error}
@@ -150,13 +165,18 @@ export function ExerciseModal({
                 Serie
               </label>
               <input
-                type="number"
+                type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                min="1"
-                max="50"
+                placeholder="3"
                 value={sets}
-                onChange={(e) => setSets(Math.max(1, parseInt(e.target.value) || 1))}
+                onBlur={() => {
+                  const setsVal = parseInt(sets, 10);
+                  if (isNaN(setsVal) || setsVal < 1) {
+                    setSets('1');
+                  }
+                }}
+                onChange={(e) => setSets(e.target.value.replace(/[^0-9]/g, ''))}
                 className="w-full min-h-[44px] px-3 py-2 text-center font-bold text-base rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
@@ -166,17 +186,21 @@ export function ExerciseModal({
                 Reps Min
               </label>
               <input
-                type="number"
+                type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                min="0"
-                max="200"
+                placeholder="8"
                 value={repsMin}
-                onChange={(e) => {
-                  const val = Math.max(0, parseInt(e.target.value) || 0);
-                  setRepsMin(val);
-                  if (val > repsMax) setRepsMax(val);
+                onBlur={() => {
+                  const minVal = parseInt(repsMin, 10);
+                  const maxVal = parseInt(repsMax, 10);
+                  if (!isNaN(minVal)) {
+                    if (isNaN(maxVal) || maxVal < minVal) {
+                      setRepsMax(String(minVal));
+                    }
+                  }
                 }}
+                onChange={(e) => setRepsMin(e.target.value.replace(/[^0-9]/g, ''))}
                 className="w-full min-h-[44px] px-3 py-2 text-center font-bold text-base rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
@@ -186,13 +210,19 @@ export function ExerciseModal({
                 Reps Max
               </label>
               <input
-                type="number"
+                type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                min={repsMin}
-                max="200"
+                placeholder={repsMin || '12'}
                 value={repsMax}
-                onChange={(e) => setRepsMax(Math.max(repsMin, parseInt(e.target.value) || repsMin))}
+                onBlur={() => {
+                  const minVal = parseInt(repsMin, 10);
+                  const maxVal = parseInt(repsMax, 10);
+                  if (isNaN(maxVal) || (!isNaN(minVal) && maxVal < minVal)) {
+                    setRepsMax(isNaN(minVal) ? '0' : String(minVal));
+                  }
+                }}
+                onChange={(e) => setRepsMax(e.target.value.replace(/[^0-9]/g, ''))}
                 className="w-full min-h-[44px] px-3 py-2 text-center font-bold text-base rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
@@ -294,22 +324,7 @@ export function ExerciseModal({
             )}
           </div>
 
-          {/* Actions */}
-          <div className="flex justify-end gap-2.5 pt-3 border-t border-zinc-100 dark:border-zinc-800">
-            <Button
-              type="button"
-              variant="secondary"
-              size="md"
-              onClick={onClose}
-              disabled={loading}
-            >
-              Annulla
-            </Button>
-            <Button type="submit" variant="primary" size="md" isLoading={loading}>
-              {exerciseToEdit ? 'Salva Esercizio' : 'Aggiungi Esercizio'}
-            </Button>
-          </div>
-        </form>
+        </div>
       </Modal>
 
       {/* Test Video Preview Modal */}
