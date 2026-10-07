@@ -26,6 +26,9 @@ interface AppLayoutProps {
   onOpenNewPlan?: () => void;
 }
 
+// Module-level storage to preserve previous active tab index across route changes
+let lastActiveIndex = -1;
+
 export function AppLayout({ children, onOpenNewPlan }: AppLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -76,6 +79,15 @@ export function AppLayout({ children, onOpenNewPlan }: AppLayoutProps) {
         ]
       : []),
   ];
+
+  const mobileNavItems = navItems.filter((item) => !item.adminOnly);
+  const activeIndex = mobileNavItems.findIndex((item) => item.active);
+
+  useEffect(() => {
+    if (activeIndex >= 0) {
+      lastActiveIndex = activeIndex;
+    }
+  }, [activeIndex]);
 
   const handleCreatePlan = async (data: { name: string; notes?: string }) => {
     if (!user) return;
@@ -217,27 +229,37 @@ export function AppLayout({ children, onOpenNewPlan }: AppLayoutProps) {
 
       {/* Mobile Bottom Navigation Bar (Fixed with Always Visible + Crea button) */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-zinc-800 px-3 py-1.5 safe-bottom">
-        <div className="flex items-center justify-around">
-          {navItems.filter(item => !item.adminOnly).map((item) => {
+        <div className="relative grid grid-cols-5 items-center">
+          {/* Active Tab Sliding Pill Indicator (strictly X-axis animation, immune to page scroll offset) */}
+          {activeIndex !== -1 && (
+            <motion.div
+              aria-hidden="true"
+              className="absolute inset-y-0 left-0 w-1/5 flex items-center justify-center pointer-events-none p-0.5 z-0"
+              initial={
+                lastActiveIndex >= 0 && lastActiveIndex !== activeIndex
+                  ? { x: `${lastActiveIndex * 100}%` }
+                  : false
+              }
+              animate={{ x: `${activeIndex * 100}%` }}
+              transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+            >
+              <div className="w-full h-full rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15" />
+            </motion.div>
+          )}
+
+          {mobileNavItems.map((item) => {
             const Icon = item.icon;
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex flex-col items-center justify-center min-h-[48px] min-w-[56px] px-2 py-1 rounded-2xl transition-all relative',
+                  'flex flex-col items-center justify-center min-h-[48px] w-full px-1 py-1 rounded-2xl transition-colors relative z-10',
                   item.active
                     ? 'text-emerald-600 dark:text-emerald-400 font-semibold'
                     : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
                 )}
               >
-                {item.active && (
-                  <motion.div
-                    layoutId="activeTabPill"
-                    className="absolute inset-0 bg-emerald-500/10 dark:bg-emerald-500/15 rounded-2xl -z-10"
-                    transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-                  />
-                )}
                 <Icon className="w-5 h-5 mb-0.5" />
                 <span className="text-[11px] leading-tight">{item.label}</span>
               </Link>
@@ -248,7 +270,7 @@ export function AppLayout({ children, onOpenNewPlan }: AppLayoutProps) {
           <button
             type="button"
             onClick={handleOpenCreateModal}
-            className="flex flex-col items-center justify-center min-h-[48px] min-w-[56px] px-2 py-1 rounded-2xl text-emerald-600 dark:text-emerald-400 cursor-pointer"
+            className="flex flex-col items-center justify-center min-h-[48px] w-full px-1 py-1 rounded-2xl text-emerald-600 dark:text-emerald-400 cursor-pointer relative z-10"
             aria-label="Nuovo Piano"
           >
             <div className="w-8 h-8 rounded-full bg-emerald-500 text-zinc-950 flex items-center justify-center shadow-md shadow-emerald-500/30">
