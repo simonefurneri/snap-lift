@@ -5,6 +5,7 @@ import {
   dispatchScheduledPush,
   isTimerCancelled,
   isScheduleActive,
+  isScheduleValidShared,
 } from '@/lib/server/pushScheduler';
 
 export const maxDuration = 60; // Keep Vercel serverless function execution budget up to 60s
@@ -55,6 +56,8 @@ export async function POST(req: NextRequest) {
           : 'Il tempo di recupero è finito, ricomincia la serie!'),
       url: '/workout',
       tag: 'rest-timer',
+      timerId,
+      scheduleId: incomingScheduleId,
     };
 
     let scheduleId = incomingScheduleId;
@@ -76,6 +79,7 @@ export async function POST(req: NextRequest) {
       const res = scheduleTimerPush(timerId, delaySeconds, subscription, payload);
       scheduleId = res.scheduleId;
       delayMs = res.delayMs;
+      payload.scheduleId = scheduleId;
     }
 
     // Keep Next.js / Vercel execution context active.
@@ -93,7 +97,8 @@ export async function POST(req: NextRequest) {
           await new Promise((resolve) => setTimeout(resolve, CHUNK_LIMIT_SECONDS * 1000));
 
           // Check if cancelled or superseded during the 50s wait
-          if (isTimerCancelled(timerId) || !isScheduleActive(scheduleId)) {
+          const isValidShared = await isScheduleValidShared(timerId, subscription.endpoint, scheduleId);
+          if (!isValidShared || isTimerCancelled(timerId) || !isScheduleActive(scheduleId)) {
             return;
           }
 

@@ -128,10 +128,18 @@ export async function scheduleServerPushTimer({
 export async function cancelServerPushTimer(timerId: string): Promise<boolean> {
   if (!timerId) return false;
   try {
+    let endpoint: string | undefined;
+    try {
+      const subscription = await getPushSubscription();
+      endpoint = subscription?.endpoint;
+    } catch {
+      // ignore
+    }
+
     const res = await fetch('/api/push/cancel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ timerId }),
+      body: JSON.stringify({ timerId, endpoint }),
     });
     return res.ok;
   } catch (err) {
