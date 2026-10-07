@@ -12,14 +12,15 @@ export const maxDuration = 60; // Keep Vercel serverless function execution budg
 
 function getBaseUrl(req: NextRequest): string {
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
-  const proto = req.headers.get('x-forwarded-proto') || 'https';
+  const isLocal = host?.includes('localhost') || host?.includes('127.0.0.1');
+  const proto = req.headers.get('x-forwarded-proto') || (isLocal ? 'http' : 'https');
   if (host) {
     return `${proto}://${host}`;
   }
   if (process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL}`;
   }
-  return process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  return process.env.NEXT_PUBLIC_APP_URL || (isLocal ? 'http://localhost:3000' : 'https://localhost:3000');
 }
 
 export async function POST(req: NextRequest) {
@@ -41,10 +42,6 @@ export async function POST(req: NextRequest) {
         { error: 'Parametri mancanti (subscription, delaySeconds, timerId)' },
         { status: 400 }
       );
-    }
-
-    if (isTimerCancelled(timerId)) {
-      return NextResponse.json({ skipped: true, reason: 'cancelled' });
     }
 
     const payload = {
@@ -83,21 +80,22 @@ export async function POST(req: NextRequest) {
     }
 
     // Keep Next.js / Vercel execution context active.
-    // Chunking ensures we never exceed Vercel's 60s limit while supporting 90s, 120s, etc.!
+    // In local dev and Node runtime, direct setTimeout in scheduleTimerPush guarantees execution.
+    // In Vercel serverless, after() keeps the container alive.
     const CHUNK_LIMIT_SECONDS = 50;
 
     after(async () => {
       try {
-        if (delaySeconds <= CHUNK_LIMIT_SECONDS) {
-          // Direct wait and dispatch within the current serverless budget
+        if (delaySeconds <= CHUNK_LIMIT_SECONDS || process.env.NODE_ENV !== 'production') {
+          // Direct wait and dispatch within the current serverless budget or local dev
           await new Promise((resolve) => setTimeout(resolve, delayMs));
           await dispatchScheduledPush(scheduleId);
         } else {
-          // Timer exceeds single invocation budget: wait 50s then chain the remaining duration
+          // Timer exceeds single invocation budget in production: wait 50s then chain the remaining duration
           await new Promise((resolve) => setTimeout(resolve, CHUNK_LIMIT_SECONDS * 1000));
 
           // Check if cancelled or superseded during the 50s wait
-          const isValidShared = await isScheduleValidShared(timerId, subscription.endpoint, scheduleId);
+          const isValidShared = await isScheduleValidShared(timerId, scheduleId);
           if (!isValidShared || isTimerCancelled(timerId) || !isScheduleActive(scheduleId)) {
             return;
           }

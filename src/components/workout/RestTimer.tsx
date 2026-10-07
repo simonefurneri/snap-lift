@@ -3,11 +3,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, Plus, Minus, X, Bell, ChevronDown, ChevronUp } from 'lucide-react';
-import { triggerVibration } from '@/lib/utils/audio';
+import { triggerVibration, playTimerCompleteBeep } from '@/lib/utils/audio';
 import {
   scheduleServerPushTimer,
   cancelServerPushTimer,
   closeRestTimerNotifications,
+  showLocalNotification,
   requestNotificationPermission,
   getNotificationPermission,
 } from '@/lib/utils/pushNotifications';
@@ -81,6 +82,7 @@ export function RestTimer({
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const timerIdRef = useRef<string>('');
   const rescheduleDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const isFinishedRef = useRef<boolean>(false);
 
   // Check notification permission on mount
   useEffect(() => {
@@ -97,6 +99,7 @@ export function RestTimer({
       targetEndTimeRef.current = Date.now() + initialSeconds * 1000;
       setIsRunning(true);
       setIsFinished(false);
+      isFinishedRef.current = false;
 
       // Dismiss any lingering old notifications
       closeRestTimerNotifications();
@@ -116,7 +119,7 @@ export function RestTimer({
         clearTimeout(rescheduleDebounceRef.current);
         rescheduleDebounceRef.current = null;
       }
-      if (timerIdRef.current) {
+      if (timerIdRef.current && !isFinishedRef.current) {
         cancelServerPushTimer(timerIdRef.current);
       }
       closeRestTimerNotifications();
@@ -127,7 +130,7 @@ export function RestTimer({
         clearTimeout(rescheduleDebounceRef.current);
         rescheduleDebounceRef.current = null;
       }
-      if (timerIdRef.current) {
+      if (timerIdRef.current && !isFinishedRef.current) {
         cancelServerPushTimer(timerIdRef.current);
       }
     };
@@ -139,7 +142,7 @@ export function RestTimer({
       clearTimeout(rescheduleDebounceRef.current);
       rescheduleDebounceRef.current = null;
     }
-    if (timerIdRef.current) {
+    if (timerIdRef.current && !isFinishedRef.current) {
       cancelServerPushTimer(timerIdRef.current);
     }
     closeRestTimerNotifications();
@@ -163,6 +166,7 @@ export function RestTimer({
       if (remaining <= 0) {
         setIsRunning(false);
         setIsFinished(true);
+        isFinishedRef.current = true;
         if (internalMinimized) {
           setInternalMinimized(false);
           onMinimizeChange?.(false);
@@ -173,12 +177,15 @@ export function RestTimer({
           rescheduleDebounceRef.current = null;
         }
 
-        // Haptic feedback
+        // Multi-sensory feedback: vibration + audio chime + local notification
         triggerVibration([300, 150, 300, 150, 500]);
-
-        // NOTE: Server-side push notification is already dispatched via APNs / Web Push
-        // at the exact second the timer reaches 0. We do not dispatch a duplicate local
-        // notification here to prevent double notification banners on iOS / mobile.
+        playTimerCompleteBeep();
+        showLocalNotification('Recupero Terminato! ⏰', {
+          body: exerciseName
+            ? `È ora della prossima serie per ${exerciseName}!`
+            : 'Il tempo di recupero è finito, ricomincia la serie!',
+          tag: 'rest-timer',
+        });
       }
     };
 
@@ -220,11 +227,18 @@ export function RestTimer({
       targetEndTimeRef.current = Date.now() + timeLeft * 1000;
       setIsRunning(true);
       setIsFinished(false);
+      isFinishedRef.current = false;
 
-      // Reschedule server push for remaining seconds
-      if (timerIdRef.current && timeLeft > 0) {
+      // Reschedule server push with a fresh timerId to guarantee it's not marked cancelled
+      if (timeLeft > 0) {
+        const prevId = timerIdRef.current;
+        const freshId = `timer-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+        timerIdRef.current = freshId;
+        if (prevId) {
+          cancelServerPushTimer(prevId);
+        }
         scheduleServerPushTimer({
-          timerId: timerIdRef.current,
+          timerId: freshId,
           delaySeconds: timeLeft,
           exerciseName,
         });
@@ -241,6 +255,7 @@ export function RestTimer({
     }
     if (isFinished) {
       setIsFinished(false);
+      isFinishedRef.current = false;
       setIsRunning(true);
       closeRestTimerNotifications();
     }
@@ -254,9 +269,15 @@ export function RestTimer({
     rescheduleDebounceRef.current = setTimeout(() => {
       rescheduleDebounceRef.current = null;
       const remainingSecs = Math.ceil((targetEndTimeRef.current - Date.now()) / 1000);
-      if (timerIdRef.current && remainingSecs > 0) {
+      if (remainingSecs > 0) {
+        const prevId = timerIdRef.current;
+        const freshId = `timer-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+        timerIdRef.current = freshId;
+        if (prevId) {
+          cancelServerPushTimer(prevId);
+        }
         scheduleServerPushTimer({
-          timerId: timerIdRef.current,
+          timerId: freshId,
           delaySeconds: remainingSecs,
           exerciseName,
         });
@@ -272,17 +293,26 @@ export function RestTimer({
       rescheduleDebounceRef.current = null;
     }
 
+    const prevId = timerIdRef.current;
+    const freshId = `timer-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    timerIdRef.current = freshId;
+
+    if (prevId) {
+      cancelServerPushTimer(prevId);
+    }
+
     targetEndTimeRef.current = Date.now() + seconds * 1000;
     setTimeLeft(seconds);
     setTotalSeconds(seconds);
     setIsRunning(true);
     setIsFinished(false);
+    isFinishedRef.current = false;
     closeRestTimerNotifications();
 
-    // Reschedule push for fixed time
-    if (timerIdRef.current && seconds > 0) {
+    // Reschedule push for fixed time with fresh timerId
+    if (seconds > 0) {
       scheduleServerPushTimer({
-        timerId: timerIdRef.current,
+        timerId: freshId,
         delaySeconds: seconds,
         exerciseName,
       });

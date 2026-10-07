@@ -75,113 +75,65 @@ async function getStorageClient() {
 }
 
 /**
- * Persists active schedule state across serverless instances in Supabase
+ * Marks a timer as cancelled across all serverless instances
  */
-export async function recordActiveScheduleShared(timerId: string, endpoint: string, scheduleId: string): Promise<void> {
+export async function markTimerCancelledShared(timerId?: string): Promise<void> {
+  if (!timerId) return;
   const client = await getStorageClient();
   if (!client) return;
 
   const payload = JSON.stringify({
     timerId,
-    endpoint,
-    scheduleId,
-    status: 'active',
-    updatedAt: Date.now(),
-  });
-
-  const endpointHash = getEndpointHash(endpoint);
-  await Promise.allSettled([
-    client.storage.from(BUCKET_NAME).upload(`timer_${timerId}.json`, payload, { upsert: true }),
-    client.storage.from(BUCKET_NAME).upload(`endpoint_${endpointHash}.json`, payload, { upsert: true }),
-  ]);
-}
-
-/**
- * Marks a timer or endpoint as cancelled across all serverless instances
- */
-export async function markTimerCancelledShared(timerId?: string, endpoint?: string): Promise<void> {
-  const client = await getStorageClient();
-  if (!client) return;
-
-  const payload = JSON.stringify({
-    timerId,
-    endpoint,
     status: 'cancelled',
-    updatedAt: Date.now(),
+    cancelledAt: Date.now(),
   });
 
-  const promises: Promise<any>[] = [];
-  if (timerId) {
-    promises.push(
-      client.storage.from(BUCKET_NAME).upload(`timer_${timerId}.json`, payload, { upsert: true })
-    );
+  try {
+    await client.storage.from(BUCKET_NAME).upload(`timer_${timerId}.json`, payload, { upsert: true });
+  } catch (err) {
+    console.warn('[pushScheduler] Error uploading timer cancellation:', err);
   }
-  if (endpoint) {
-    const endpointHash = getEndpointHash(endpoint);
-    promises.push(
-      client.storage.from(BUCKET_NAME).upload(`endpoint_${endpointHash}.json`, payload, { upsert: true })
-    );
-  }
-
-  await Promise.allSettled(promises);
 }
 
 /**
- * Checks if a scheduled timer is still valid or has been cancelled/superseded across serverless instances
+ * Checks if a specific timer has been explicitly cancelled across serverless instances
  */
-export async function isScheduleValidShared(timerId: string, endpoint: string, scheduleId: string): Promise<boolean> {
+export async function isScheduleValidShared(timerId: string, scheduleId?: string): Promise<boolean> {
+  if (cancelledTimers.has(timerId)) {
+    return false;
+  }
   const client = await getStorageClient();
   if (!client) return true; // If no shared storage, fallback to in-memory check
 
   try {
-    const endpointHash = getEndpointHash(endpoint);
+    const { data: timerBlob, error } = await client.storage
+      .from(BUCKET_NAME)
+      .download(`timer_${timerId}.json`);
 
-    const [timerFileRes, endpointFileRes] = await Promise.allSettled([
-      client.storage.from(BUCKET_NAME).download(`timer_${timerId}.json`),
-      client.storage.from(BUCKET_NAME).download(`endpoint_${endpointHash}.json`),
-    ]);
-
-    // Check timer-level status
-    if (timerFileRes.status === 'fulfilled' && timerFileRes.value.data) {
-      const text = await timerFileRes.value.data.text();
-      const data = JSON.parse(text);
-      if (data.status === 'cancelled') {
-        return false;
+    if (timerBlob && !error) {
+      const text = await timerBlob.text();
+      const parsed = JSON.parse(text);
+      if (parsed.status === 'cancelled') {
+        return false; // Explicitly cancelled!
       }
-      if (data.scheduleId && data.scheduleId !== scheduleId) {
-        // Newer schedule exists for this timer!
-        return false;
-      }
-    }
-
-    // Check endpoint-level status
-    if (endpointFileRes.status === 'fulfilled' && endpointFileRes.value.data) {
-      const text = await endpointFileRes.value.data.text();
-      const data = JSON.parse(text);
-      if (data.status === 'cancelled') {
-        return false;
-      }
-      if (data.scheduleId && data.scheduleId !== scheduleId) {
-        // Newer schedule exists for this device endpoint!
-        return false;
+      if (scheduleId && parsed.scheduleId && parsed.scheduleId !== scheduleId) {
+        return false; // Superseded by a newer schedule
       }
     }
 
     return true;
-  } catch (err) {
-    console.warn('[pushScheduler] Error checking shared schedule validity:', err);
-    return true;
+  } catch {
+    return true; // Default to allowing push if file does not exist or read fails
   }
 }
 
 /**
  * Cleanup files after dispatch
  */
-async function cleanupSharedScheduleFiles(timerId: string, endpoint: string): Promise<void> {
+async function cleanupSharedScheduleFiles(timerId: string): Promise<void> {
   const client = await getStorageClient();
   if (!client) return;
-  const endpointHash = getEndpointHash(endpoint);
-  client.storage.from(BUCKET_NAME).remove([`timer_${timerId}.json`, `endpoint_${endpointHash}.json`]).catch(() => {});
+  client.storage.from(BUCKET_NAME).remove([`timer_${timerId}.json`]).catch(() => {});
 }
 
 /**
@@ -273,12 +225,28 @@ export function scheduleTimerPush(
   latestScheduleByTimer.set(timerId, scheduleId);
   latestScheduleByEndpoint.set(endpoint, scheduleId);
 
-  // Sync active schedule state across all serverless instances
-  recordActiveScheduleShared(timerId, endpoint, scheduleId).catch((err) => {
-    console.warn('[pushScheduler] Failed to record active schedule in shared storage:', err);
-  });
+  // 5. Direct Node.js timer guarantees bulletproof execution in local development and persistent Node servers
+  item.timeoutId = setTimeout(async () => {
+    try {
+      await dispatchScheduledPush(scheduleId);
+    } catch (err) {
+      console.error('[pushScheduler] Timeout dispatch error:', err);
+    }
+  }, delayMs);
 
-  // If QStash is configured (for distributed serverless environments), schedule via QStash
+  // 6. Overwrite any stale cancelled state in Supabase shared storage across serverless instances
+  getStorageClient().then(async (client) => {
+    if (!client) return;
+    const payload = JSON.stringify({
+      timerId,
+      scheduleId,
+      status: 'active',
+      scheduledTime: item.scheduledTime,
+    });
+    await client.storage.from(BUCKET_NAME).upload(`timer_${timerId}.json`, payload, { upsert: true });
+  }).catch(() => {});
+
+  // 7. If QStash is configured (for distributed serverless environments), schedule via QStash
   if (process.env.QSTASH_TOKEN) {
     let rawAppUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL || '';
     if (rawAppUrl && !rawAppUrl.startsWith('http://') && !rawAppUrl.startsWith('https://')) {
@@ -358,8 +326,6 @@ export function continueChainedSchedule(
     item.scheduledTime = Date.now() + delayMs;
   }
 
-  recordActiveScheduleShared(timerId, endpoint, scheduleId).catch(() => {});
-
   return { valid: true, delayMs };
 }
 
@@ -396,28 +362,29 @@ export async function dispatchScheduledPush(scheduleId: string): Promise<boolean
     return false;
   }
 
-  // Strictly check validity in shared Supabase storage across all serverless containers
-  const isValidShared = await isScheduleValidShared(item.timerId, item.endpoint, scheduleId);
-  if (!isValidShared) {
-    cleanupSchedule(scheduleId);
-    return false;
-  }
-
-  // Atomically claim dispatch: synchronous state change prevents duplicate sends
+  // Atomically claim dispatch: synchronous state change prevents duplicate sends across concurrent async callers
   item.isDispatched = true;
   if (item.timeoutId) {
     clearTimeout(item.timeoutId);
     item.timeoutId = undefined;
   }
+
+  // Strictly check validity in shared Supabase storage across all serverless containers
+  const isValidShared = await isScheduleValidShared(item.timerId, scheduleId);
+  if (!isValidShared) {
+    cleanupSchedule(scheduleId);
+    return false;
+  }
+
   cleanupSchedule(scheduleId);
 
   // Deliver the push
   try {
     await sendWebPush(item.subscription, item.payload);
-    cleanupSharedScheduleFiles(item.timerId, item.endpoint).catch(() => {});
+    cleanupSharedScheduleFiles(item.timerId).catch(() => {});
     return true;
   } catch (err: any) {
-    cleanupSharedScheduleFiles(item.timerId, item.endpoint).catch(() => {});
+    cleanupSharedScheduleFiles(item.timerId).catch(() => {});
     if (err.statusCode === 410 || err.statusCode === 404) {
       console.warn(`[pushScheduler] Subscription expired for timer ${item.timerId}`);
     } else {
@@ -466,7 +433,10 @@ function cleanupSchedule(scheduleId: string): void {
 }
 
 /**
- * Cancels all active schedules for a given timerId or endpoint across memory and shared storage
+ * Cancels active schedules for a given timerId or endpoint across memory and shared storage.
+ * CRITICAL RACE CONDITION FIX:
+ * When timerId is provided with endpoint, only the schedule belonging to timerId is cancelled.
+ * Newer timers that have superseded this endpoint are preserved!
  */
 export async function cancelTimerPush(timerId?: string, endpoint?: string): Promise<boolean> {
   if (!timerId && !endpoint) return false;
@@ -477,16 +447,27 @@ export async function cancelTimerPush(timerId?: string, endpoint?: string): Prom
     if (scheduleId) {
       cancelScheduleById(scheduleId);
     }
-  }
 
-  if (endpoint) {
+    if (endpoint) {
+      const endpointScheduleId = latestScheduleByEndpoint.get(endpoint);
+      if (endpointScheduleId) {
+        const item = activeSchedules.get(endpointScheduleId);
+        // Only cancel if this endpoint's schedule actually belongs to timerId!
+        if (item && item.timerId === timerId) {
+          cancelScheduleById(endpointScheduleId);
+        }
+      }
+    }
+
+    await markTimerCancelledShared(timerId);
+  } else if (endpoint) {
+    // Only endpoint was passed (cancel any active timer for this device)
     const scheduleId = latestScheduleByEndpoint.get(endpoint);
     if (scheduleId) {
       cancelScheduleById(scheduleId);
     }
   }
 
-  await markTimerCancelledShared(timerId, endpoint);
   return true;
 }
 
