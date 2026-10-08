@@ -335,16 +335,8 @@ export function RestTimer({
   const progressPct = totalSeconds > 0 ? ((totalSeconds - timeLeft) / totalSeconds) * 100 : 100;
 
   return (
-    <motion.div
+    <div
       ref={containerRef}
-      layout
-      transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-      style={{
-        WebkitBackfaceVisibility: 'hidden',
-        backfaceVisibility: 'hidden',
-        transform: 'translate3d(0, 0, 0)',
-        willChange: 'transform, height',
-      }}
       className="w-full relative rounded-2xl sm:rounded-3xl bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border border-emerald-500/30 dark:border-emerald-500/20 overflow-hidden"
     >
       {/* Top Progress bar */}
@@ -363,7 +355,7 @@ export function RestTimer({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
             onClick={() => handleToggleMinimize(false)}
             className="w-full px-3.5 py-2.5 flex items-center justify-between gap-2.5 cursor-pointer select-none"
           >
@@ -451,7 +443,7 @@ export function RestTimer({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
           className="w-full p-3.5 sm:p-5 flex flex-col gap-2.5 sm:gap-3"
         >
           {/* Header */}
@@ -598,6 +590,6 @@ export function RestTimer({
         </motion.div>
       )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }

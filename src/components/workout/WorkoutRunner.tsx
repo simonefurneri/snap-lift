@@ -104,6 +104,7 @@ export function WorkoutRunner({
   const exercisesCarouselRef = useRef<HTMLDivElement>(null);
   const mainScrollRef = useRef<HTMLElement>(null);
   const setsTableRef = useRef<HTMLDivElement>(null);
+  const drawerRef = useRef<HTMLDivElement>(null);
   const syncDebounceTimersRef = useRef<Record<string, NodeJS.Timeout>>({});
 
   const weightUnit = profile?.weight_unit || 'kg';
@@ -120,31 +121,32 @@ export function WorkoutRunner({
     }
   }, [currentExerciseIndex]);
 
-  const scrollAnimationRef = useRef<number | null>(null);
+  const scrollAnimRef = useRef<number | null>(null);
 
-  // Synchronized smooth scroll running in parallel with the expansion animation
-  const startSynchronizedScroll = useCallback(() => {
+  // Single-phase continuous smooth scroll running on pure math without layout thrashing
+  const animateScrollTo = useCallback((targetScroll: number, duration = 350) => {
     const el = mainScrollRef.current;
     if (!el) return;
 
-    if (scrollAnimationRef.current !== null) {
-      cancelAnimationFrame(scrollAnimationRef.current);
-      scrollAnimationRef.current = null;
+    if (scrollAnimRef.current !== null) {
+      cancelAnimationFrame(scrollAnimRef.current);
+      scrollAnimRef.current = null;
     }
 
-    const duration = 260; // ms, aligns with the drawer animation
-    const startTime = performance.now();
     const startScroll = el.scrollTop;
+    const distance = targetScroll - startScroll;
+    if (Math.abs(distance) < 1) return;
 
-    const onUserTouch = () => {
-      if (scrollAnimationRef.current !== null) {
-        cancelAnimationFrame(scrollAnimationRef.current);
-        scrollAnimationRef.current = null;
+    const startTime = performance.now();
+
+    const onTouch = () => {
+      if (scrollAnimRef.current !== null) {
+        cancelAnimationFrame(scrollAnimRef.current);
+        scrollAnimRef.current = null;
       }
     };
-
-    el.addEventListener('touchstart', onUserTouch, { passive: true, once: true });
-    el.addEventListener('wheel', onUserTouch, { passive: true, once: true });
+    el.addEventListener('touchstart', onTouch, { passive: true, once: true });
+    el.addEventListener('wheel', onTouch, { passive: true, once: true });
 
     const step = (now: number) => {
       const elapsed = now - startTime;
@@ -152,36 +154,77 @@ export function WorkoutRunner({
       // Apple cubic ease-out curve [0.16, 1, 0.3, 1]
       const ease = 1 - Math.pow(1 - progress, 3);
 
-      const targetScroll = Math.max(0, el.scrollHeight - el.clientHeight);
-      el.scrollTop = startScroll + (targetScroll - startScroll) * ease;
+      el.scrollTop = startScroll + distance * ease;
 
       if (progress < 1) {
-        scrollAnimationRef.current = requestAnimationFrame(step);
+        scrollAnimRef.current = requestAnimationFrame(step);
       } else {
-        scrollAnimationRef.current = null;
+        scrollAnimRef.current = null;
+        el.scrollTop = targetScroll;
       }
     };
 
-    scrollAnimationRef.current = requestAnimationFrame(step);
+    scrollAnimRef.current = requestAnimationFrame(step);
   }, []);
 
   const prevOpenRef = useRef(false);
   const prevMinimizedRef = useRef(false);
+  const prevKeyRef = useRef(restTimerKey);
+  const expandedHeightRef = useRef<number>(190);
+  const minimizedHeightRef = useRef<number>(68);
 
-  // Smooth scroll to bottom synchronized with RestTimer open or maximize
+  const handleTimerHeightChange = useCallback((h: number) => {
+    const outerH = h + 8; // account for pb-2 wrapper (8px)
+    if (isRestTimerMinimized) {
+      minimizedHeightRef.current = outerH;
+    } else {
+      expandedHeightRef.current = outerH;
+    }
+  }, [isRestTimerMinimized]);
+
+  // Smooth scroll synchronized with RestTimer open, close, and minimize
   useEffect(() => {
     const wasOpen = prevOpenRef.current;
     const wasMinimized = prevMinimizedRef.current;
+    const prevKey = prevKeyRef.current;
+
     prevOpenRef.current = isRestTimerOpen;
     prevMinimizedRef.current = isRestTimerMinimized;
+    prevKeyRef.current = restTimerKey;
 
-    if (!isRestTimerOpen || isRestTimerMinimized) return;
+    const el = mainScrollRef.current;
+    if (!el) return;
 
-    // Start synchronized scroll in parallel with drawer expansion
-    if (!wasOpen || wasMinimized) {
-      startSynchronizedScroll();
+    if (isRestTimerOpen) {
+      const isOpening = !wasOpen;
+      const isMinimizing = wasOpen && !wasMinimized && isRestTimerMinimized;
+      const isMaximizing = wasOpen && wasMinimized && !isRestTimerMinimized;
+      const isNewTimer = restTimerKey !== prevKey;
+
+      if (isOpening || isMaximizing || isNewTimer) {
+        const targetDrawerH = expandedHeightRef.current || 190;
+        const currentDrawerH = isOpening ? 0 : (drawerRef.current?.offsetHeight || (minimizedHeightRef.current || 68));
+        const futureClientH = Math.max(50, el.clientHeight + currentDrawerH - targetDrawerH);
+        const targetScroll = Math.max(0, el.scrollHeight - futureClientH);
+        animateScrollTo(targetScroll, 350);
+      } else if (isMinimizing) {
+        const targetDrawerH = minimizedHeightRef.current || 68;
+        const currentDrawerH = drawerRef.current?.offsetHeight || (expandedHeightRef.current || 190);
+        const futureClientH = Math.max(50, el.clientHeight + currentDrawerH - targetDrawerH);
+        const targetScroll = Math.max(0, el.scrollHeight - futureClientH);
+        animateScrollTo(targetScroll, 350);
+      }
+    } else if (wasOpen && !isRestTimerOpen) {
+      // Closing: drawer collapses to 0
+      const currentDrawerH = drawerRef.current?.offsetHeight || (expandedHeightRef.current || 190);
+      const futureClientH = el.clientHeight + currentDrawerH;
+      const finalMaxScroll = Math.max(0, el.scrollHeight - futureClientH);
+
+      if (el.scrollTop > finalMaxScroll) {
+        animateScrollTo(finalMaxScroll, 350);
+      }
     }
-  }, [isRestTimerOpen, isRestTimerMinimized, restTimerKey, startSynchronizedScroll]);
+  }, [isRestTimerOpen, isRestTimerMinimized, restTimerKey, animateScrollTo]);
 
   // Auto-scroll carousel to active exercise when currentExerciseIndex changes
   useEffect(() => {
@@ -866,10 +909,10 @@ export function WorkoutRunner({
       {/* 3. MAIN WORKOUT RUNNER BODY (Scrollable central area) */}
       <main
         ref={mainScrollRef}
-        className="flex-1 overflow-y-auto p-4 sm:p-6 max-w-3xl w-full mx-auto flex flex-col gap-4 min-h-0 pb-4 sm:pb-6"
+        className="flex-1 overflow-y-auto px-4 pt-4 sm:px-6 sm:pt-6 pb-0 sm:pb-0 max-w-3xl w-full mx-auto flex flex-col min-h-0"
       >
         {currentExercise ? (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 sm:gap-6 w-full">
             {/* Exercise Header Card */}
             <div className="bg-white dark:bg-zinc-900/90 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-sm">
               <div className="flex items-start justify-between gap-3 mb-3">
@@ -1130,6 +1173,8 @@ export function WorkoutRunner({
               </div>
             </div>
 
+            {/* In-flow bottom clearance spacer: guarantees gap-4 (16px / 24px sm) separation from bottom bar or docked timer */}
+            <div className="h-0 w-full shrink-0" aria-hidden="true" />
           </div>
         ) : (
           <div className="p-8 text-center text-zinc-400">Nessun esercizio presente in questo giorno.</div>
@@ -1140,32 +1185,43 @@ export function WorkoutRunner({
       <AnimatePresence initial={false}>
         {isRestTimerOpen && (
           <motion.div
-            layout
-            initial={{ opacity: 0, y: 24, height: 0 }}
-            animate={{ opacity: 1, y: 0, height: 'auto' }}
-            exit={{ opacity: 0, y: 24, height: 0 }}
-            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            style={{
-              WebkitBackfaceVisibility: 'hidden',
-              backfaceVisibility: 'hidden',
-              transform: 'translate3d(0, 0, 0)',
-              willChange: 'transform, height, opacity',
+            ref={drawerRef}
+            initial={{ opacity: 0, height: 0 }}
+            animate={{
+              opacity: 1,
+              height: isRestTimerMinimized
+                ? (minimizedHeightRef.current || 68)
+                : 'auto',
             }}
-            className="shrink-0 px-3 pb-2 sm:px-6 max-w-3xl w-full mx-auto z-30 overflow-hidden"
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            className="shrink-0 px-3 sm:px-6 max-w-3xl w-full mx-auto z-30 overflow-hidden"
+            onAnimationComplete={() => {
+              const el = mainScrollRef.current;
+              if (el && isRestTimerOpen) {
+                const finalMax = Math.max(0, el.scrollHeight - el.clientHeight);
+                if (Math.abs(el.scrollTop - finalMax) > 0 && Math.abs(el.scrollTop - finalMax) <= 35) {
+                  el.scrollTop = finalMax;
+                }
+              }
+            }}
           >
-            <RestTimer
-              key={restTimerKey}
-              isOpen={isRestTimerOpen}
-              initialSeconds={restTimerSeconds}
-              exerciseName={restTimerExerciseName}
-              isMinimized={isRestTimerMinimized}
-              onMinimizeChange={setIsRestTimerMinimized}
-              onClose={() => {
-                setIsRestTimerOpen(false);
-                setIsRestTimerMinimized(false);
-                activeTimerSetKeyRef.current = null;
-              }}
-            />
+            <div className="pb-2">
+              <RestTimer
+                key={restTimerKey}
+                isOpen={isRestTimerOpen}
+                initialSeconds={restTimerSeconds}
+                exerciseName={restTimerExerciseName}
+                isMinimized={isRestTimerMinimized}
+                onMinimizeChange={setIsRestTimerMinimized}
+                onHeightChange={handleTimerHeightChange}
+                onClose={() => {
+                  setIsRestTimerOpen(false);
+                  setIsRestTimerMinimized(false);
+                  activeTimerSetKeyRef.current = null;
+                }}
+              />
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
