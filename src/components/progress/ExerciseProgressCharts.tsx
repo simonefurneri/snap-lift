@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { ExerciseProgressData, WeeklyProgressPoint } from '@/lib/services/workoutService';
 import {
   TrendingUp,
@@ -11,23 +12,50 @@ import {
   Minus,
   Dumbbell,
   Calendar,
+  Sparkles,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface ExerciseProgressChartsProps {
   data: ExerciseProgressData;
   weightUnit: string;
+  planName?: string;
+  planId?: string | null;
 }
 
-export function ExerciseProgressCharts({ data, weightUnit }: ExerciseProgressChartsProps) {
+export function ExerciseProgressCharts({
+  data,
+  weightUnit,
+  planName,
+  planId,
+}: ExerciseProgressChartsProps) {
   const { weeklyPoints, allTimeMaxWeight, allTimeTotalVolume, totalWorkouts, exerciseName } = data;
 
   if (weeklyPoints.length === 0) {
     return (
-      <div className="p-8 text-center bg-white dark:bg-zinc-900 rounded-3xl border border-slate-200 dark:border-zinc-800">
-        <p className="text-sm text-zinc-500">
-          Nessun dato registrato per &quot;{exerciseName}&quot;. Completa una sessione per vedere i grafici.
-        </p>
+      <div className="p-8 sm:p-12 text-center bg-white dark:bg-zinc-900/90 rounded-3xl border border-slate-200/80 dark:border-zinc-800 shadow-xs flex flex-col items-center justify-center gap-3.5">
+        <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+          <Dumbbell className="w-7 h-7" />
+        </div>
+        <div>
+          <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-zinc-100">
+            Nessun dato registrato per &quot;{exerciseName}&quot;
+          </h3>
+          <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 max-w-md mt-1 leading-relaxed">
+            {planName && planName !== 'Tutte le schede'
+              ? `Non ci sono ancora serie registrate per questo esercizio nelle sessioni della scheda "${planName}". Avvia ed esegui un allenamento per iniziare a visualizzare i progressi!`
+              : 'Completa una sessione di allenamento con questo esercizio per visualizzare i grafici dei progressi e il sovraccarico progressivo.'}
+          </p>
+        </div>
+        {planId && planId !== 'all' && (
+          <Link
+            href={`/plans/${planId}`}
+            className="mt-1 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-zinc-950 transition-all shadow-md shadow-emerald-500/20 active:scale-95"
+          >
+            <Calendar className="w-4 h-4" />
+            <span>Vai alla Scheda</span>
+          </Link>
+        )}
       </div>
     );
   }

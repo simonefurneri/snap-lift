@@ -33,6 +33,14 @@ export interface ExerciseProgressData {
   totalWorkouts: number;
 }
 
+export interface LoggedExerciseItem {
+  name: string;
+  totalSets: number;
+  lastSessionDate: string;
+  dayNames?: string[];
+  isConfiguredInPlan?: boolean;
+}
+
 export const workoutService = {
   // 1. Start a new workout session for a given plan day
   async startSession(userId: string, planDayId: string): Promise<WorkoutSession> {
@@ -307,11 +315,119 @@ export const workoutService = {
     };
   },
 
-  // 9. Get all unique exercises logged by the user (for Progress selector)
-  async getLoggedExercises(userId: string): Promise<
-    { name: string; totalSets: number; lastSessionDate: string }[]
-  > {
+  // 9. Get all unique exercises logged by the user (or scoped to a specific plan)
+  async getLoggedExercises(
+    userId: string,
+    planId?: string | null
+  ): Promise<LoggedExerciseItem[]> {
     const supabase = createClient();
+
+    if (planId && planId !== 'all') {
+      // 1. Fetch days and configured exercises for this plan
+      const { data: daysData, error: daysError } = await supabase
+        .from('plan_days')
+        .select(`
+          id,
+          name,
+          position,
+          exercises (
+            id,
+            name,
+            position
+          )
+        `)
+        .eq('plan_id', planId)
+        .order('position', { ascending: true });
+
+      if (daysError) throw daysError;
+
+      const dayIds = (daysData || []).map((d) => d.id);
+
+      interface PlanExEntry {
+        name: string;
+        dayNames: string[];
+        isConfiguredInPlan: boolean;
+        totalSets: number;
+        lastSessionDate: string;
+      }
+      const exercisesMap = new Map<string, PlanExEntry>();
+
+      // Populate configured exercises in day & position order
+      for (const day of (daysData || [])) {
+        const sortedDayExercises = ((day as any).exercises || []).sort(
+          (a: any, b: any) => (a.position ?? 0) - (b.position ?? 0)
+        );
+        for (const ex of sortedDayExercises) {
+          const name = ex.name?.trim();
+          if (!name) continue;
+          const key = name.toLowerCase();
+          const existing = exercisesMap.get(key);
+          if (!existing) {
+            exercisesMap.set(key, {
+              name,
+              dayNames: day.name ? [day.name] : [],
+              isConfiguredInPlan: true,
+              totalSets: 0,
+              lastSessionDate: '',
+            });
+          } else {
+            if (day.name && !existing.dayNames.includes(day.name)) {
+              existing.dayNames.push(day.name);
+            }
+          }
+        }
+      }
+
+      // Check sessions logged for this plan
+      if (dayIds.length > 0) {
+        const { data: sessionRows, error: sessError } = await supabase
+          .from('workout_sessions')
+          .select('id')
+          .in('plan_day_id', dayIds);
+
+        if (sessError) throw sessError;
+
+        const sessionIds = (sessionRows || []).map((s) => s.id);
+
+        if (sessionIds.length > 0) {
+          const { data: logsData, error: logsError } = await supabase
+            .from('set_logs')
+            .select('exercise_name, created_at')
+            .eq('user_id', userId)
+            .in('session_id', sessionIds)
+            .order('created_at', { ascending: false });
+
+          if (logsError) throw logsError;
+
+          if (logsData) {
+            for (const row of logsData) {
+              const name = row.exercise_name?.trim();
+              if (!name) continue;
+              const key = name.toLowerCase();
+              const existing = exercisesMap.get(key);
+              if (existing) {
+                existing.totalSets += 1;
+                if (!existing.lastSessionDate || new Date(row.created_at) > new Date(existing.lastSessionDate)) {
+                  existing.lastSessionDate = row.created_at;
+                }
+              } else {
+                exercisesMap.set(key, {
+                  name,
+                  dayNames: [],
+                  isConfiguredInPlan: false,
+                  totalSets: 1,
+                  lastSessionDate: row.created_at,
+                });
+              }
+            }
+          }
+        }
+      }
+
+      return Array.from(exercisesMap.values());
+    }
+
+    // Default / All Plans: get all unique logged exercises across all workouts
     const { data, error } = await supabase
       .from('set_logs')
       .select('exercise_name, created_at')
@@ -339,7 +455,7 @@ export const workoutService = {
     }
 
     // Format map back to readable exercise list
-    const result: { name: string; totalSets: number; lastSessionDate: string }[] = [];
+    const result: LoggedExerciseItem[] = [];
     const seenNames = new Set<string>();
 
     for (const row of data) {
@@ -357,18 +473,66 @@ export const workoutService = {
     return result;
   },
 
-  // 10. Get weekly progress statistics for a specific exercise
+  // 10. Get weekly progress statistics for a specific exercise (optionally scoped to a plan)
   async getExerciseProgress(
     userId: string,
-    exerciseName: string
+    exerciseName: string,
+    planId?: string | null
   ): Promise<ExerciseProgressData> {
     const supabase = createClient();
-    const { data, error } = await supabase
+
+    let sessionIds: string[] | null = null;
+
+    if (planId && planId !== 'all') {
+      const { data: days, error: daysError } = await supabase
+        .from('plan_days')
+        .select('id')
+        .eq('plan_id', planId);
+
+      if (daysError) throw daysError;
+
+      const dayIds = (days || []).map((d) => d.id);
+      if (dayIds.length === 0) {
+        return {
+          exerciseName,
+          weeklyPoints: [],
+          allTimeMaxWeight: 0,
+          allTimeTotalVolume: 0,
+          totalWorkouts: 0,
+        };
+      }
+
+      const { data: sessions, error: sessError } = await supabase
+        .from('workout_sessions')
+        .select('id')
+        .in('plan_day_id', dayIds);
+
+      if (sessError) throw sessError;
+
+      sessionIds = (sessions || []).map((s) => s.id);
+      if (sessionIds.length === 0) {
+        return {
+          exerciseName,
+          weeklyPoints: [],
+          allTimeMaxWeight: 0,
+          allTimeTotalVolume: 0,
+          totalWorkouts: 0,
+        };
+      }
+    }
+
+    let query = supabase
       .from('set_logs')
       .select('set_number, weight, reps, created_at, session_id')
       .eq('user_id', userId)
       .ilike('exercise_name', exerciseName.trim())
       .order('created_at', { ascending: true });
+
+    if (sessionIds !== null) {
+      query = query.in('session_id', sessionIds);
+    }
+
+    const { data, error } = await query;
 
     if (error || !data || data.length === 0) {
       return {
@@ -489,9 +653,42 @@ export const workoutService = {
     };
   },
 
-  // 11. Reset / delete all progress logs for a specific exercise
-  async resetExerciseProgress(userId: string, exerciseName: string): Promise<void> {
+  // 11. Reset / delete all progress logs for a specific exercise (optionally scoped to a plan)
+  async resetExerciseProgress(
+    userId: string,
+    exerciseName: string,
+    planId?: string | null
+  ): Promise<void> {
     const supabase = createClient();
+
+    if (planId && planId !== 'all') {
+      const { data: days } = await supabase
+        .from('plan_days')
+        .select('id')
+        .eq('plan_id', planId);
+
+      const dayIds = (days || []).map((d) => d.id);
+      if (dayIds.length === 0) return;
+
+      const { data: sessions } = await supabase
+        .from('workout_sessions')
+        .select('id')
+        .in('plan_day_id', dayIds);
+
+      const sessionIds = (sessions || []).map((s) => s.id);
+      if (sessionIds.length === 0) return;
+
+      const { error } = await supabase
+        .from('set_logs')
+        .delete()
+        .eq('user_id', userId)
+        .ilike('exercise_name', exerciseName.trim())
+        .in('session_id', sessionIds);
+
+      if (error) throw error;
+      return;
+    }
+
     const { error } = await supabase
       .from('set_logs')
       .delete()
@@ -501,7 +698,43 @@ export const workoutService = {
     if (error) throw error;
   },
 
-  // 12. Reset / delete all workout progress logs and sessions for the user
+  // 12. Reset all workout progress logs and sessions for a specific plan
+  async resetPlanProgress(userId: string, planId: string): Promise<void> {
+    const supabase = createClient();
+    const { data: days } = await supabase
+      .from('plan_days')
+      .select('id')
+      .eq('plan_id', planId);
+
+    const dayIds = (days || []).map((d) => d.id);
+    if (dayIds.length === 0) return;
+
+    const { data: sessions } = await supabase
+      .from('workout_sessions')
+      .select('id')
+      .in('plan_day_id', dayIds);
+
+    const sessionIds = (sessions || []).map((s) => s.id);
+    if (sessionIds.length === 0) return;
+
+    // Delete set logs in these sessions
+    const { error: logsError } = await supabase
+      .from('set_logs')
+      .delete()
+      .in('session_id', sessionIds);
+
+    if (logsError) throw logsError;
+
+    // Delete workout sessions for these plan days
+    const { error: sessError } = await supabase
+      .from('workout_sessions')
+      .delete()
+      .in('id', sessionIds);
+
+    if (sessError) throw sessError;
+  },
+
+  // 13. Reset / delete all workout progress logs and sessions for the user globally
   async resetAllProgress(userId: string): Promise<void> {
     const supabase = createClient();
     // Delete all set_logs
