@@ -13,18 +13,18 @@ import { PlanWithDetails } from '@/types/database.types';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ExerciseProgressCharts } from '@/components/progress/ExerciseProgressCharts';
 import { PlanSelector } from '@/components/progress/PlanSelector';
+import { WeightProgressView } from '@/components/progress/WeightProgressView';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import {
   TrendingUp,
   Dumbbell,
+  Scale,
   Search,
   Loader2,
   Trash2,
   RotateCcw,
   CheckCircle2,
-  Layers,
-  Calendar,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -32,6 +32,18 @@ function ProgressContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialPlanIdParam = searchParams.get('planId');
+  const activeTab = searchParams.get('tab') === 'weight' ? 'weight' : 'exercises';
+
+  const handleTabChange = (tab: 'exercises' | 'weight') => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === 'weight') {
+      params.set('tab', 'weight');
+    } else {
+      params.delete('tab');
+    }
+    const query = params.toString();
+    router.replace(`/progress${query ? `?${query}` : ''}`);
+  };
 
   const { user, profile, loading: authLoading } = useAuth();
 
@@ -151,25 +163,29 @@ function ProgressContent() {
   // 3. Fetch progress data when selectedExercise or selectedPlanId changes
   useEffect(() => {
     if (!user || !selectedExercise || !selectedPlanId) {
-      setProgressData(null);
       return;
     }
+
+    let ignore = false;
 
     const fetchProgress = async () => {
       setLoadingCharts(true);
       try {
         const planArg = selectedPlanId === 'all' ? null : selectedPlanId;
         const data = await workoutService.getExerciseProgress(user.id, selectedExercise, planArg);
-        setProgressData(data);
+        if (!ignore) setProgressData(data);
       } catch (err) {
         console.error('Error fetching progress charts', err);
-        setProgressData(null);
+        if (!ignore) setProgressData(null);
       } finally {
-        setLoadingCharts(false);
+        if (!ignore) setLoadingCharts(false);
       }
     };
 
     fetchProgress();
+    return () => {
+      ignore = true;
+    };
   }, [user, selectedExercise, selectedPlanId]);
 
   // Auto-scroll carousel to active exercise when selectedExercise changes or list loads
@@ -293,19 +309,21 @@ function ProgressContent() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black">
-                <TrendingUp className="w-4 h-4" />
+                {activeTab === 'weight' ? <Scale className="w-4 h-4" /> : <TrendingUp className="w-4 h-4" />}
               </div>
               <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-zinc-100 tracking-tight">
-                Progressi & Sovraccarico
+                {activeTab === 'weight' ? 'Progressi & Peso Corporeo' : 'Progressi & Sovraccarico'}
               </h1>
             </div>
             <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
-              Seleziona una scheda per tracciare il carico massimo e il volume dei relativi esercizi.
+              {activeTab === 'weight'
+                ? 'Monitora l\'evoluzione del peso corporeo, la media mobile e le variazioni nel tempo.'
+                : 'Seleziona una scheda per tracciare il carico massimo e il volume dei relativi esercizi.'}
             </p>
           </div>
 
-          {/* Reset Action */}
-          {loggedExercises.some((e) => e.totalSets > 0) && (
+          {/* Reset Action (only in exercises tab) */}
+          {activeTab === 'exercises' && loggedExercises.some((e) => e.totalSets > 0) && (
             <button
               type="button"
               onClick={() => setIsResetPlanOpen(true)}
@@ -319,7 +337,71 @@ function ProgressContent() {
           )}
         </div>
 
-        {/* Plan Selector (Selettore Scheda) */}
+        {/* Tab Switcher: Carichi & Schede vs Peso Corporeo */}
+        <div className="flex items-center gap-1.5 p-1.5 bg-slate-200/60 dark:bg-zinc-800/80 rounded-2xl border border-slate-300/40 dark:border-zinc-700/50 self-start">
+          <button
+            type="button"
+            onClick={() => handleTabChange('exercises')}
+            className={`relative px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-colors cursor-pointer ${
+              activeTab === 'exercises'
+                ? 'text-slate-900 dark:text-zinc-100'
+                : 'text-zinc-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
+            }`}
+          >
+            {activeTab === 'exercises' && (
+              <motion.div
+                layoutId="activeProgressMainTab"
+                className="absolute inset-0 bg-white dark:bg-zinc-900 rounded-xl shadow-xs"
+                transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+              />
+            )}
+            <Dumbbell className="w-4 h-4 relative z-10" />
+            <span className="relative z-10">Carichi & Schede</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleTabChange('weight')}
+            className={`relative px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-colors cursor-pointer ${
+              activeTab === 'weight'
+                ? 'text-slate-900 dark:text-zinc-100'
+                : 'text-zinc-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
+            }`}
+          >
+            {activeTab === 'weight' && (
+              <motion.div
+                layoutId="activeProgressMainTab"
+                className="absolute inset-0 bg-white dark:bg-zinc-900 rounded-xl shadow-xs"
+                transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+              />
+            )}
+            <Scale className="w-4 h-4 relative z-10" />
+            <span className="relative z-10">Peso Corporeo</span>
+          </button>
+        </div>
+
+        {/* Main Content Area */}
+        <AnimatePresence mode="wait">
+          {activeTab === 'weight' ? (
+            <motion.div
+              key="tab-weight-content"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.18 }}
+            >
+              <WeightProgressView showToast={showToast} />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="tab-exercises-content"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.18 }}
+              className="flex flex-col gap-6"
+            >
+              {/* Plan Selector (Selettore Scheda) */}
         {plans.length > 0 && (
           <PlanSelector
             plans={plans}
@@ -465,6 +547,9 @@ function ProgressContent() {
             ) : null}
           </div>
         )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Dialog: Confirm Reset Single Exercise */}
         <ConfirmDialog

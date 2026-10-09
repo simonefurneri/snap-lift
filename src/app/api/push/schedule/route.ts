@@ -35,6 +35,8 @@ export async function POST(req: NextRequest) {
       exerciseName,
       scheduleId: incomingScheduleId,
       isChained,
+      url,
+      tag,
     } = body;
 
     if (!subscription || typeof delaySeconds !== 'number' || !timerId) {
@@ -51,8 +53,8 @@ export async function POST(req: NextRequest) {
         (exerciseName
           ? `È ora della prossima serie per ${exerciseName}!`
           : 'Il tempo di recupero è finito, ricomincia la serie!'),
-      url: '/workout',
-      tag: 'rest-timer',
+      url: url || '/workout',
+      tag: tag || 'rest-timer',
       timerId,
       scheduleId: incomingScheduleId,
     };
@@ -116,6 +118,8 @@ export async function POST(req: NextRequest) {
               exerciseName,
               scheduleId,
               isChained: true,
+              url: payload.url,
+              tag: payload.tag,
             }),
           });
         }

@@ -192,3 +192,186 @@ export async function showLocalNotification(title: string, options?: Notificatio
   }
   return false;
 }
+
+/**
+ * Sends a test weight reminder push notification
+ */
+export async function sendTestWeightReminderPush(): Promise<boolean> {
+  try {
+    const sub = await getPushSubscription();
+    if (!sub) return false;
+
+    const res = await fetch('/api/push/weight-reminder/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscription: sub.toJSON() }),
+    });
+
+    return res.ok;
+  } catch (err) {
+    console.warn('[push] Error sending test weight reminder push:', err);
+    return false;
+  }
+}
+
+/**
+ * Calculates the delay in seconds and target date until the next scheduled reminder
+ */
+export function calculateNextReminderDelay(
+  timeStr: string,
+  dayOfWeek: number = -1
+): { delaySeconds: number; targetDate: Date } {
+  const parts = timeStr.split(':');
+  const hours = parseInt(parts[0], 10) || 0;
+  const minutes = parseInt(parts[1], 10) || 0;
+
+  const now = new Date();
+  const target = new Date();
+  target.setHours(hours, minutes, 0, 0);
+
+  if (dayOfWeek === -1) {
+    // Every day: if time has already passed today, target is tomorrow
+    if (target.getTime() <= now.getTime()) {
+      target.setDate(target.getDate() + 1);
+    }
+  } else {
+    // Specific day of week (0=Sun, 1=Mon, ..., 6=Sat)
+    const currentDay = now.getDay();
+    let daysUntil = (dayOfWeek - currentDay + 7) % 7;
+    if (daysUntil === 0 && target.getTime() <= now.getTime()) {
+      daysUntil = 7;
+    }
+    target.setDate(target.getDate() + daysUntil);
+  }
+
+  const diffMs = target.getTime() - now.getTime();
+  const delaySeconds = Math.max(1, Math.round(diffMs / 1000));
+  return { delaySeconds, targetDate: target };
+}
+
+/**
+ * Formats a friendly Italian string describing when the next reminder will fire
+ */
+export function formatNextReminderDescription(targetDate: Date): string {
+  const now = new Date();
+  const diffMs = targetDate.getTime() - now.getTime();
+  if (diffMs <= 0) return 'Adesso';
+
+  const diffMinutes = Math.round(diffMs / 60000);
+  const diffHours = Math.round(diffMs / 3600000);
+  const diffDays = Math.round(diffMs / 86400000);
+
+  let relativeStr = '';
+  if (diffMinutes < 1) {
+    relativeStr = 'tra meno di un minuto';
+  } else if (diffMinutes === 1) {
+    relativeStr = 'tra 1 minuto';
+  } else if (diffMinutes < 60) {
+    relativeStr = `tra ${diffMinutes} minuti`;
+  } else if (diffHours === 1) {
+    relativeStr = 'tra 1 ora';
+  } else if (diffHours < 24) {
+    relativeStr = `tra ~${diffHours} ore`;
+  } else {
+    relativeStr = `tra ${diffDays} giorn${diffDays === 1 ? 'o' : 'i'}`;
+  }
+
+  const isToday =
+    targetDate.getDate() === now.getDate() &&
+    targetDate.getMonth() === now.getMonth() &&
+    targetDate.getFullYear() === now.getFullYear();
+
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const isTomorrow =
+    targetDate.getDate() === tomorrow.getDate() &&
+    targetDate.getMonth() === tomorrow.getMonth() &&
+    targetDate.getFullYear() === tomorrow.getFullYear();
+
+  const timeStr = targetDate.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+
+  if (isToday) {
+    return `Oggi alle ${timeStr} (${relativeStr})`;
+  }
+  if (isTomorrow) {
+    return `Domani alle ${timeStr} (${relativeStr})`;
+  }
+
+  const dayName = targetDate.toLocaleDateString('it-IT', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'short',
+  });
+  return `${dayName} alle ${timeStr} (${relativeStr})`;
+}
+
+/**
+ * Schedules a weight reminder push notification via server Web Push.
+ * Delivers exactly one notification through the Service Worker whether the app is open or closed.
+ */
+export async function scheduleWeightReminderPush({
+  userId,
+  time,
+  day,
+}: {
+  userId: string;
+  time: string;
+  day: number;
+}): Promise<boolean> {
+  try {
+    const { delaySeconds } = calculateNextReminderDelay(time, day);
+
+    const subscription = await getPushSubscription();
+    if (!subscription) {
+      console.warn('[push] No push subscription available for weight reminder');
+      return false;
+    }
+
+    const timerId = `weight-reminder-${userId}`;
+
+    const res = await fetch('/api/push/schedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subscription: subscription.toJSON(),
+        delaySeconds,
+        timerId,
+        title: 'Promemoria Peso Corporeo ⚖️',
+        body: 'Buongiorno! Ricordati di registrare il tuo peso odierno su SnapLift per mantenere aggiornato il tuo trend.',
+        url: '/progress?tab=weight',
+        tag: 'weight-reminder',
+      }),
+    });
+
+    return res.ok;
+  } catch (err) {
+    console.error('[push] Error scheduling weight reminder push:', err);
+    return false;
+  }
+}
+
+/**
+ * Cancels a scheduled weight reminder push notification on the server
+ */
+export async function cancelWeightReminderPush(userId: string): Promise<boolean> {
+  return cancelServerPushTimer(`weight-reminder-${userId}`);
+}
+
+/**
+ * Closes active weight reminder notifications in the device tray
+ */
+export async function closeWeightReminderNotifications(): Promise<void> {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    if ('getNotifications' in registration) {
+      const notifications = await registration.getNotifications({ tag: 'weight-reminder' });
+      for (const n of notifications) {
+        n.close();
+      }
+    }
+  } catch (err) {
+    console.warn('[push] Error closing weight reminder notifications:', err);
+  }
+}
+

@@ -13,6 +13,7 @@ export const dataExportService = {
       { data: exercises },
       { data: sessions },
       { data: setLogs },
+      { data: weightLogs },
     ] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', userId).single(),
       supabase.from('plans').select('*').eq('user_id', userId),
@@ -20,6 +21,7 @@ export const dataExportService = {
       supabase.from('exercises').select('*'),
       supabase.from('workout_sessions').select('*').eq('user_id', userId),
       supabase.from('set_logs').select('*').eq('user_id', userId),
+      supabase.from('body_weight_logs').select('*').eq('user_id', userId).order('recorded_at', { ascending: true }),
     ]);
 
     // Filter days and exercises belonging to user's plans
@@ -33,6 +35,7 @@ export const dataExportService = {
       app: 'SnapLift Workout Tracker',
       version: '1.0',
       profile,
+      body_weight_logs: weightLogs || [],
       plans: (plans || []).map((plan) => ({
         ...plan,
         days: userDays
@@ -118,6 +121,52 @@ export const dataExportService = {
     const link = document.createElement('a');
     link.href = url;
     link.download = `snaplift-storico-allenamenti-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  },
+
+  // 3. Export body weight history as CSV
+  async exportWeightsAsCsv(userId: string): Promise<void> {
+    const supabase = createClient();
+
+    const { data: weightLogs, error } = await supabase
+      .from('body_weight_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .order('recorded_at', { ascending: false });
+
+    if (error) {
+      console.error('[dataExportService] exportWeightsAsCsv error:', error);
+      throw error;
+    }
+
+    const headers = ['Data Rilevazione', 'Peso (kg)', 'Note', 'Registrato Il'];
+    const rows: string[][] = [];
+
+    (weightLogs || []).forEach((log) => {
+      const recordedDate = log.recorded_at ? new Date(log.recorded_at).toLocaleDateString('it-IT') : '';
+      const createdAt = log.created_at ? new Date(log.created_at).toLocaleString('it-IT') : '';
+      const notes = (log.notes || '').replace(/"/g, '""');
+
+      rows.push([
+        `"${recordedDate}"`,
+        `${log.weight}`,
+        `"${notes}"`,
+        `"${createdAt}"`,
+      ]);
+    });
+
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+
+    const blob = new Blob([csvContent], {
+      type: 'text/csv;charset=utf-8;',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `snaplift-storico-peso-${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

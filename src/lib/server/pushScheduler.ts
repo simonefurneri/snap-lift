@@ -190,6 +190,8 @@ export function scheduleTimerPush(
 ): { scheduled: boolean; scheduleId: string; delayMs: number } {
   const endpoint = subscription.endpoint;
   const delayMs = Math.max(500, Math.round(delaySeconds * 1000));
+  const category = payload.tag || 'rest-timer';
+  const endpointKey = `${category}:${endpoint}`;
 
   // 1. Invalidate any existing schedule for this timerId
   const prevScheduleForTimer = latestScheduleByTimer.get(timerId);
@@ -197,9 +199,9 @@ export function scheduleTimerPush(
     cancelScheduleById(prevScheduleForTimer);
   }
 
-  // 2. Invalidate any existing schedule for this device endpoint
-  // A device must only ever have ONE active rest timer push.
-  const prevScheduleForEndpoint = latestScheduleByEndpoint.get(endpoint);
+  // 2. Invalidate any existing schedule for this device endpoint within the same category
+  // A device must only ever have ONE active timer push per category (e.g. rest-timer or weight-reminder).
+  const prevScheduleForEndpoint = latestScheduleByEndpoint.get(endpointKey) || (category === 'rest-timer' ? latestScheduleByEndpoint.get(endpoint) : undefined);
   if (prevScheduleForEndpoint) {
     cancelScheduleById(prevScheduleForEndpoint);
   }
@@ -223,7 +225,10 @@ export function scheduleTimerPush(
 
   activeSchedules.set(scheduleId, item);
   latestScheduleByTimer.set(timerId, scheduleId);
-  latestScheduleByEndpoint.set(endpoint, scheduleId);
+  latestScheduleByEndpoint.set(endpointKey, scheduleId);
+  if (category === 'rest-timer') {
+    latestScheduleByEndpoint.set(endpoint, scheduleId);
+  }
 
   // 5. Direct Node.js timer guarantees bulletproof execution in local development and persistent Node servers
   item.timeoutId = setTimeout(async () => {
@@ -300,7 +305,9 @@ export function continueChainedSchedule(
   }
 
   const endpoint = subscription.endpoint;
-  const latestEndpointSchedule = latestScheduleByEndpoint.get(endpoint);
+  const category = payload.tag || 'rest-timer';
+  const endpointKey = `${category}:${endpoint}`;
+  const latestEndpointSchedule = latestScheduleByEndpoint.get(endpointKey) || (category === 'rest-timer' ? latestScheduleByEndpoint.get(endpoint) : undefined);
   if (latestEndpointSchedule && latestEndpointSchedule !== scheduleId) {
     return { valid: false, delayMs: 0 };
   }
@@ -321,7 +328,10 @@ export function continueChainedSchedule(
     };
     activeSchedules.set(scheduleId, item);
     latestScheduleByTimer.set(timerId, scheduleId);
-    latestScheduleByEndpoint.set(endpoint, scheduleId);
+    latestScheduleByEndpoint.set(endpointKey, scheduleId);
+    if (category === 'rest-timer') {
+      latestScheduleByEndpoint.set(endpoint, scheduleId);
+    }
   } else {
     item.scheduledTime = Date.now() + delayMs;
   }
@@ -356,7 +366,9 @@ export async function dispatchScheduledPush(scheduleId: string): Promise<boolean
     return false;
   }
 
-  const currentForEndpoint = latestScheduleByEndpoint.get(item.endpoint);
+  const category = item.payload.tag || 'rest-timer';
+  const endpointKey = `${category}:${item.endpoint}`;
+  const currentForEndpoint = latestScheduleByEndpoint.get(endpointKey) || (category === 'rest-timer' ? latestScheduleByEndpoint.get(item.endpoint) : undefined);
   if (currentForEndpoint && currentForEndpoint !== scheduleId) {
     cleanupSchedule(scheduleId);
     return false;
@@ -426,6 +438,11 @@ function cleanupSchedule(scheduleId: string): void {
     if (latestScheduleByTimer.get(item.timerId) === scheduleId) {
       latestScheduleByTimer.delete(item.timerId);
     }
+    const category = item.payload.tag || 'rest-timer';
+    const endpointKey = `${category}:${item.endpoint}`;
+    if (latestScheduleByEndpoint.get(endpointKey) === scheduleId) {
+      latestScheduleByEndpoint.delete(endpointKey);
+    }
     if (latestScheduleByEndpoint.get(item.endpoint) === scheduleId) {
       latestScheduleByEndpoint.delete(item.endpoint);
     }
@@ -449,12 +466,19 @@ export async function cancelTimerPush(timerId?: string, endpoint?: string): Prom
     }
 
     if (endpoint) {
-      const endpointScheduleId = latestScheduleByEndpoint.get(endpoint);
-      if (endpointScheduleId) {
-        const item = activeSchedules.get(endpointScheduleId);
-        // Only cancel if this endpoint's schedule actually belongs to timerId!
-        if (item && item.timerId === timerId) {
-          cancelScheduleById(endpointScheduleId);
+      const keysToClean = [
+        `rest-timer:${endpoint}`,
+        `weight-reminder:${endpoint}`,
+        endpoint,
+      ];
+      for (const k of keysToClean) {
+        const endpointScheduleId = latestScheduleByEndpoint.get(k);
+        if (endpointScheduleId) {
+          const item = activeSchedules.get(endpointScheduleId);
+          // Only cancel if this endpoint's schedule actually belongs to timerId!
+          if (item && item.timerId === timerId) {
+            cancelScheduleById(endpointScheduleId);
+          }
         }
       }
     }
@@ -462,9 +486,16 @@ export async function cancelTimerPush(timerId?: string, endpoint?: string): Prom
     await markTimerCancelledShared(timerId);
   } else if (endpoint) {
     // Only endpoint was passed (cancel any active timer for this device)
-    const scheduleId = latestScheduleByEndpoint.get(endpoint);
-    if (scheduleId) {
-      cancelScheduleById(scheduleId);
+    const keysToClean = [
+      `rest-timer:${endpoint}`,
+      `weight-reminder:${endpoint}`,
+      endpoint,
+    ];
+    for (const k of keysToClean) {
+      const scheduleId = latestScheduleByEndpoint.get(k);
+      if (scheduleId) {
+        cancelScheduleById(scheduleId);
+      }
     }
   }
 

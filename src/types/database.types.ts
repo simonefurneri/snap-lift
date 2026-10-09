@@ -20,6 +20,9 @@ export type Database = {
           is_approved: boolean;
           is_admin: boolean;
           approved_at: string | null;
+          weight_reminder_enabled?: boolean;
+          weight_reminder_time?: string;
+          weight_reminder_day?: number;
           created_at: string;
           updated_at: string;
         };
@@ -33,6 +36,9 @@ export type Database = {
           is_approved?: boolean;
           is_admin?: boolean;
           approved_at?: string | null;
+          weight_reminder_enabled?: boolean;
+          weight_reminder_time?: string;
+          weight_reminder_day?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -46,6 +52,9 @@ export type Database = {
           is_approved?: boolean;
           is_admin?: boolean;
           approved_at?: string | null;
+          weight_reminder_enabled?: boolean;
+          weight_reminder_time?: string;
+          weight_reminder_day?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -266,6 +275,41 @@ export type Database = {
         };
         Relationships: [];
       };
+      body_weight_logs: {
+        Row: {
+          id: string;
+          user_id: string;
+          weight: number;
+          recorded_at: string;
+          notes: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          weight: number;
+          recorded_at?: string;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          weight?: number;
+          recorded_at?: string;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'body_weight_logs_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -308,3 +352,8 @@ export interface PlanDayWithExercises extends PlanDay {
 export interface PlanWithDetails extends Plan {
   days: PlanDayWithExercises[];
 }
+
+export type BodyWeightLog = Database['public']['Tables']['body_weight_logs']['Row'];
+export type BodyWeightLogInsert = Database['public']['Tables']['body_weight_logs']['Insert'];
+export type BodyWeightLogUpdate = Database['public']['Tables']['body_weight_logs']['Update'];
+

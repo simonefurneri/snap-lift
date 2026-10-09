@@ -533,7 +533,7 @@ export default function ProfilePage() {
                 if (!user) return;
                 try {
                   await dataExportService.exportWorkoutsAsCsv(user.id);
-                  showToast('File CSV scaricato con successo');
+                  showToast('File CSV serie scaricato con successo');
                 } catch (e) {
                   showToast('Errore durante l\'esportazione CSV');
                 }
@@ -541,7 +541,26 @@ export default function ProfilePage() {
               className="w-full sm:w-auto justify-center"
             >
               <FileSpreadsheet className="w-4 h-4 mr-2 text-emerald-500" />
-              <span>Esporta Storico Serie (CSV)</span>
+              <span>Esporta Serie (CSV)</span>
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              onClick={async () => {
+                if (!user) return;
+                try {
+                  await dataExportService.exportWeightsAsCsv(user.id);
+                  showToast('File CSV peso corporeo scaricato con successo');
+                } catch (e) {
+                  showToast('Errore durante l\'esportazione CSV peso');
+                }
+              }}
+              className="w-full sm:w-auto justify-center"
+            >
+              <Scale className="w-4 h-4 mr-2 text-emerald-500" />
+              <span>Esporta Peso (CSV)</span>
             </Button>
           </div>
         </div>

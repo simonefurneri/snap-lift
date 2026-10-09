@@ -223,4 +223,47 @@ describe('pushScheduler - Comprehensive Rest Timer Notification Tests', () => {
     expect(disp1 || disp2).toBe(true);
     expect(sendWebPush).toHaveBeenCalledTimes(1);
   });
+
+  it('10. Category isolation: Weight reminder and rest timer on same device coexist without cancelling each other', async () => {
+    const endpoint = 'https://fcm.googleapis.com/fcm/send/test-category-isolation';
+    const sub = { ...mockSubscription, endpoint };
+
+    const restTimerPayload = {
+      title: 'Recupero Terminato! ⏰',
+      body: 'È ora della prossima serie!',
+      tag: 'rest-timer',
+      url: '/workout',
+    };
+
+    const weightReminderPayload = {
+      title: 'Promemoria Peso Corporeo ⚖️',
+      body: 'Ricordati di registrarti il peso!',
+      tag: 'weight-reminder',
+      url: '/progress?tab=weight',
+    };
+
+    // 1. User schedules a weight reminder for later
+    const weightTimerId = 'weight-reminder-user-123';
+    const resWeight = scheduleTimerPush(weightTimerId, 120, sub, weightReminderPayload);
+    expect(isScheduleActive(resWeight.scheduleId)).toBe(true);
+
+    // 2. User starts a rest timer in workout
+    const restTimerId = 'rest-timer-set-1';
+    const resRest = scheduleTimerPush(restTimerId, 60, sub, restTimerPayload);
+
+    // Both schedules MUST be active concurrently!
+    expect(isScheduleActive(resRest.scheduleId)).toBe(true);
+    expect(isScheduleActive(resWeight.scheduleId)).toBe(true);
+
+    // 3. User finishes rest timer
+    await cancelTimerPush(restTimerId, endpoint);
+
+    // Rest timer is cancelled, BUT weight reminder MUST remain alive and active!
+    expect(isScheduleActive(resRest.scheduleId)).toBe(false);
+    expect(isScheduleActive(resWeight.scheduleId)).toBe(true);
+
+    // 4. Weight reminder dispatches cleanly
+    const dispatched = await dispatchScheduledPush(resWeight.scheduleId);
+    expect(dispatched).toBe(true);
+  });
 });
